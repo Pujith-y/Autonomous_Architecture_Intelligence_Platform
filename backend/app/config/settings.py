@@ -12,6 +12,13 @@ class Settings(BaseSettings):
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
 
+    NEO4J_URI: str
+    NEO4J_USERNAME: str
+    NEO4J_PASSWORD: str
+
+    QDRANT_HOST: str
+    QDRANT_PORT: int
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=True
