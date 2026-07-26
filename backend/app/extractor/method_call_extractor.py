@@ -7,4 +7,10 @@ class MethodCallExtractor(BaseExtractor):
         self.current_method = None
 
     def visit(self, node):
-        
+        if node.type == "method_declaration":
+            name = node.child_by_field_name("name")
+            self.current_method = name.text.decode()
+
+        elif node.type == "method_invocation":
+            name = node.child_by_field_name("name")
+            self.calls.append((self.current_method,name.text.decode()))
