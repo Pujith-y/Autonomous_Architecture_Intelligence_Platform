@@ -1,9 +1,11 @@
 class ASTWalker:
 
-    def walk(self, node, extractor):
+    def walk(self, node, extractors):
         if node is None:
             return
-        extractor.visit(node)
+        
+        for extractor in extractors:
+            extractor.visit(node)
 
         for child in node.named_children:
-            self.walk(child, extractor)
+            self.walk(child, extractors)

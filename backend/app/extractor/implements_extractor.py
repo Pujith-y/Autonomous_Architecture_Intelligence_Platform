@@ -1,10 +1,11 @@
 from app.extractor.base import BaseExtractor
 
+from app.domain.relationships.implementation import Implementation
 
 class ImplementsExtractor(BaseExtractor):
 
     def __init__(self):
-        self.implements = []
+        super().__init__()
 
     def visit(self, node):
         if node.type != "class_declaration":
@@ -17,9 +18,9 @@ class ImplementsExtractor(BaseExtractor):
             return
 
         for interface in interfaces.named_children[0].named_children:
-            self.implements.append(
-                (
-                    class_name.text.decode(),
-                    interface.text.decode()
+            self.result.append(
+                Implementation(
+                    class_name=class_name.text.decode(),
+                    interface_name=interface.text.decode()
                 )
             )

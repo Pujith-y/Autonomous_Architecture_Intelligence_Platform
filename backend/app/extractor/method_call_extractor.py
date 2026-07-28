@@ -1,9 +1,10 @@
 from app.extractor.base import BaseExtractor
+from app.domain.relationships.method_call import MethodCall
 
 class MethodCallExtractor(BaseExtractor):
 
     def __init__(self):
-        self.calls = []
+        super().__init__()
         self.current_method = None
 
     def visit(self, node):
@@ -13,4 +14,9 @@ class MethodCallExtractor(BaseExtractor):
 
         elif node.type == "method_invocation":
             name = node.child_by_field_name("name")
-            self.calls.append((self.current_method,name.text.decode()))
+            self.result.append(
+                MethodCall(
+                    caller=self.current_method,
+                    callee=name.text.decode()
+                )
+            )
