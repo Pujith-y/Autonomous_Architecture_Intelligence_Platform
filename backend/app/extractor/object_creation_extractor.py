@@ -31,8 +31,9 @@ class ObjectCreationExtractor(BaseExtractor):
                     owner_name = self.current_class
                 self.result.append(
                     ObjectCreation(
-                        owner_type=owner_type,
+                        owner_parent=self.current_class,
                         owner_name=owner_name,
+                        owner_type=owner_type,
                         object_type=name.text.decode()
                     )
                 )

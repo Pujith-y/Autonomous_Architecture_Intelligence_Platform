@@ -23,4 +23,19 @@ public class User extends Admin{
 }
 
 class Admin implements Serializable, Cloneable {
+    void serialize(){
+    }
+    void clone(){
+    }
 }
+
+public interface Serializable{
+    void serialize();
+}
+
+public interface Cloneable{
+    void clone();
+}
+
+public class UserRepository {}
+public class AuthService {}

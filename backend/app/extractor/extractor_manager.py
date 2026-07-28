@@ -7,6 +7,7 @@ from app.extractor.method_call_extractor import MethodCallExtractor
 from app.extractor.object_creation_extractor import ObjectCreationExtractor
 from app.extractor.extends_extractor import ExtendsExtractor
 from app.extractor.implements_extractor import ImplementsExtractor
+from app.extractor.interface_extractor import InterfaceExtractor
 
 from app.parser.ast_walker import ASTWalker
 from app.models.parsed_file import ParsedFile
@@ -21,6 +22,7 @@ class ExtractorManager:
             "class": ClassExtractor(),
             "method": MethodExtractor(),
             "field": FieldExtractor(),
+            "interface" : InterfaceExtractor(),
             "calls": MethodCallExtractor(),
             "objects": ObjectCreationExtractor(),
             "extends": ExtendsExtractor(),
@@ -39,6 +41,7 @@ class ExtractorManager:
             classes=self.extractors["class"].result,
             methods=self.extractors["method"].result,
             fields=self.extractors["field"].result,
+            interfaces=self.extractors["interface"].result,
 
             method_calls=self.extractors["calls"].result,
             object_creations=self.extractors["objects"].result,

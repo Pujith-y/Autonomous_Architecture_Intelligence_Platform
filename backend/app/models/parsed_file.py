@@ -8,6 +8,7 @@ class ParsedFile:
     classes: list
     methods: list
     fields: list
+    interfaces: list
 
     method_calls: list
     object_creations: list
