@@ -6,8 +6,6 @@ from app.discovery.classification.loader import (
     ClassificationDefinitions,
 )
 
-from app.discovery.models import FileCategory
-
 
 class FileCategory(str, Enum):
     SOURCE = "source"
@@ -36,9 +34,6 @@ class FileClassifier:
         is_binary: bool,
     ) -> FileCategory:
 
-        if is_binary:
-            return FileCategory.ASSET
-
         if self._matches(
             path,
             "generated",
@@ -50,6 +45,9 @@ class FileClassifier:
             "build",
         ):
             return FileCategory.BUILD
+
+        if is_binary:
+            return FileCategory.ASSET
 
         if self._matches(
             path,

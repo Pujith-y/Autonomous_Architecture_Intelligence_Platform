@@ -15,6 +15,8 @@ class RepositoryMetadata:
     documentation_files: int = 0
     test_files: int = 0
     asset_files: int = 0
+    generated_files: int = 0
+    build_files: int = 0
     unknown_files: int = 0
 
     languages: dict[str, int] = field(default_factory=dict)
@@ -71,6 +73,12 @@ class RepositoryAnalyzer:
 
             elif file.category == FileCategory.ASSET:
                 metadata.asset_files += 1
+
+            elif file.category == FileCategory.GENERATED:
+                metadata.generated_files += 1
+
+            elif file.category == FileCategory.BUILD:
+                metadata.build_files += 1
 
             elif file.category == FileCategory.UNKNOWN:
                 metadata.unknown_files += 1

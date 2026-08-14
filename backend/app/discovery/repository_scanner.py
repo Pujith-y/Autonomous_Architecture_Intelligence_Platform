@@ -7,7 +7,7 @@ from app.discovery.models import (
     DiscoveredDirectory,
 )
 from app.discovery.ignore import IgnoreRules
-from app.core import logger
+from app.core.logger import logger
 from app.discovery.file_detector import is_binary_file
 from app.discovery.language_detector import LanguageDetector
 from app.discovery.file_classifier import FileClassifier, FileCategory

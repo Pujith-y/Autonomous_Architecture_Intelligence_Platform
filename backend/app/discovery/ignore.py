@@ -13,7 +13,7 @@ class IgnoreRules:
         self.root = root
 
         self.patterns = pathspec.PathSpec.from_lines(
-            "gitwildmatch",
+            "gitignore",
             self._load_gitignore() + (custom_patterns or []),
         )
 
