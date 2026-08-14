@@ -1,0 +1,42 @@
+[
+    {
+        "filename": "package.json",
+        "ecosystem": "javascript",
+        "parser": "json"
+    },
+    {
+        "filename": "pyproject.toml",
+        "ecosystem": "python",
+        "parser": "pyproject"
+    },
+    {
+        "filename": "requirements.txt",
+        "ecosystem": "python",
+        "parser": "requirements"
+    },
+    {
+        "filename": "pom.xml",
+        "ecosystem": "java",
+        "parser": "maven"
+    },
+    {
+        "filename": "build.gradle",
+        "ecosystem": "java",
+        "parser": "gradle"
+    },
+    {
+        "filename": "build.gradle.kts",
+        "ecosystem": "java",
+        "parser": "gradle"
+    },
+    {
+        "filename": "Cargo.toml",
+        "ecosystem": "rust",
+        "parser": "cargo"
+    },
+    {
+        "filename": "go.mod",
+        "ecosystem": "go",
+        "parser": "gomod"
+    }
+]

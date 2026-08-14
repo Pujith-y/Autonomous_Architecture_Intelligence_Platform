@@ -1,0 +1,50 @@
+[
+    {
+        "name": "React",
+        "ecosystem": "javascript",
+        "dependencies": ["react"],
+        "dependency_prefixes": []
+    },
+    {
+        "name": "Next.js",
+        "ecosystem": "javascript",
+        "dependencies": ["next"],
+        "dependency_prefixes": []
+    },
+    {
+        "name": "Vue",
+        "ecosystem": "javascript",
+        "dependencies": ["vue"],
+        "dependency_prefixes": []
+    },
+    {
+        "name": "Angular",
+        "ecosystem": "javascript",
+        "dependencies": ["@angular/core"],
+        "dependency_prefixes": []
+    },
+    {
+        "name": "FastAPI",
+        "ecosystem": "python",
+        "dependencies": ["fastapi"],
+        "dependency_prefixes": []
+    },
+    {
+        "name": "Django",
+        "ecosystem": "python",
+        "dependencies": ["django"],
+        "dependency_prefixes": []
+    },
+    {
+        "name": "Flask",
+        "ecosystem": "python",
+        "dependencies": ["flask"],
+        "dependency_prefixes": []
+    },
+    {
+        "name": "Spring Boot",
+        "ecosystem": "java",
+        "dependencies": ["spring-boot"],
+        "dependency_prefixes": []
+    }
+]

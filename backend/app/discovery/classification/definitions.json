@@ -1,0 +1,79 @@
+{
+  "documentation": {
+    "filenames": [
+      "readme",
+      "readme.md",
+      "readme.txt",
+      "readme.rst",
+      "changelog",
+      "changelog.md",
+      "contributing.md",
+      "license"
+    ],
+    "directories": [
+      "docs",
+      "documentation"
+    ]
+  },
+
+  "test": {
+    "directories": [
+      "test",
+      "tests",
+      "spec",
+      "specs"
+    ],
+    "filename_contains": [
+      ".test.",
+      ".spec."
+    ],
+    "filename_prefixes": [
+      "test_",
+      "test-"
+    ],
+    "filename_suffixes": [
+      "_test.py",
+      "_test.go"
+    ]
+  },
+
+  "configuration": {
+    "filenames": [
+      "package.json",
+      "package-lock.json",
+      "pyproject.toml",
+      "poetry.lock",
+      "cargo.toml",
+      "cargo.lock",
+      "pom.xml",
+      "build.gradle",
+      "build.gradle.kts",
+      "settings.gradle",
+      "settings.gradle.kts",
+      "dockerfile",
+      "docker-compose.yml",
+      "docker-compose.yaml",
+      ".gitignore",
+      ".dockerignore",
+      "makefile"
+    ]
+  },
+
+  "generated": {
+    "directories": [
+      "__pycache__",
+      ".pytest_cache",
+      ".mypy_cache",
+      "coverage"
+    ]
+  },
+
+  "build": {
+    "directories": [
+      "dist",
+      "build",
+      "target",
+      "out"
+    ]
+  }
+}
