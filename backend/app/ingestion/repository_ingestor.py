@@ -10,8 +10,7 @@ from app.ingestion.repository_source import (
     RepositorySource,
     RepositorySourceType,
 )
-
-
+from app.core.logger import logger
 class RepositoryIngestor:
 
     def ingest(self, source: RepositorySource) -> Repository:
@@ -68,8 +67,14 @@ class RepositoryIngestor:
             )
 
         except GitCommandError as e:
+            logger.error(
+                f"Failed to clone repository "
+                f"{source.location}: {e}"
+            )
+
             raise RuntimeError(
-                f"Failed to clone repository: {source.location}"
+                f"Failed to clone repository "
+                f"{source.location}: {e.stderr or e}"
             ) from e
 
         return Repository(

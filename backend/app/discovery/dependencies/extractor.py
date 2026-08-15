@@ -3,6 +3,7 @@ from pathlib import Path
 from app.discovery.dependencies.models import Dependency
 from app.discovery.dependencies.parsers import ManifestParsers
 from app.discovery.dependencies.registry import ManifestRegistry
+from app.discovery.dependencies.parser_registry import ParserRegistry
 
 
 class DependencyExtractor:
@@ -10,18 +11,14 @@ class DependencyExtractor:
     def __init__(
         self,
         registry: ManifestRegistry,
+        parser_registry: ParserRegistry | None = None,
     ):
         self.registry = registry
 
-        self.parsers = {
-            "json": ManifestParsers.json,
-            "pyproject": ManifestParsers.pyproject,
-            "requirements": ManifestParsers.requirements,
-            "maven": ManifestParsers.maven,
-            "gradle": ManifestParsers.gradle,
-            "cargo": ManifestParsers.cargo,
-            "gomod": ManifestParsers.gomod,
-        }
+        self.parser_registry = (
+            parser_registry
+            or ParserRegistry()
+        )
 
     def extract(
         self,
@@ -35,7 +32,7 @@ class DependencyExtractor:
         if definition is None:
             return []
 
-        parser = self.parsers.get(
+        parser = self.parser_registry.get(
             definition.parser
         )
 

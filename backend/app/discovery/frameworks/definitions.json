@@ -18,11 +18,48 @@
         "dependency_prefixes": []
     },
     {
-        "name": "Angular",
+        "name": "Nuxt",
         "ecosystem": "javascript",
-        "dependencies": ["@angular/core"],
+        "dependencies": ["nuxt"],
         "dependency_prefixes": []
     },
+    {
+        "name": "Angular",
+        "ecosystem": "javascript",
+        "dependencies": [],
+        "dependency_prefixes": ["@angular/"]
+    },
+    {
+        "name": "Svelte",
+        "ecosystem": "javascript",
+        "dependencies": ["svelte"],
+        "dependency_prefixes": []
+    },
+    {
+        "name": "SvelteKit",
+        "ecosystem": "javascript",
+        "dependencies": ["@sveltejs/kit"],
+        "dependency_prefixes": []
+    },
+    {
+        "name": "Express",
+        "ecosystem": "javascript",
+        "dependencies": ["express"],
+        "dependency_prefixes": []
+    },
+    {
+        "name": "NestJS",
+        "ecosystem": "javascript",
+        "dependencies": [],
+        "dependency_prefixes": ["@nestjs/"]
+    },
+    {
+        "name": "Fastify",
+        "ecosystem": "javascript",
+        "dependencies": ["fastify"],
+        "dependency_prefixes": []
+    },
+
     {
         "name": "FastAPI",
         "ecosystem": "python",
@@ -42,9 +79,84 @@
         "dependency_prefixes": []
     },
     {
+        "name": "Starlette",
+        "ecosystem": "python",
+        "dependencies": ["starlette"],
+        "dependency_prefixes": []
+    },
+    {
+        "name": "Tornado",
+        "ecosystem": "python",
+        "dependencies": ["tornado"],
+        "dependency_prefixes": []
+    },
+    {
+        "name": "Streamlit",
+        "ecosystem": "python",
+        "dependencies": ["streamlit"],
+        "dependency_prefixes": []
+    },
+
+    {
         "name": "Spring Boot",
         "ecosystem": "java",
         "dependencies": ["spring-boot"],
+        "dependency_prefixes": []
+    },
+    {
+        "name": "Quarkus",
+        "ecosystem": "java",
+        "dependencies": ["quarkus"],
+        "dependency_prefixes": []
+    },
+    {
+        "name": "Micronaut",
+        "ecosystem": "java",
+        "dependencies": ["micronaut"],
+        "dependency_prefixes": []
+    },
+
+    {
+        "name": "Gin",
+        "ecosystem": "go",
+        "dependencies": ["github.com/gin-gonic/gin"],
+        "dependency_prefixes": []
+    },
+    {
+        "name": "Echo",
+        "ecosystem": "go",
+        "dependencies": ["github.com/labstack/echo"],
+        "dependency_prefixes": []
+    },
+    {
+        "name": "Fiber",
+        "ecosystem": "go",
+        "dependencies": ["github.com/gofiber/fiber"],
+        "dependency_prefixes": []
+    },
+    {
+        "name": "Chi",
+        "ecosystem": "go",
+        "dependencies": ["github.com/go-chi/chi"],
+        "dependency_prefixes": []
+    },
+
+    {
+        "name": "Actix Web",
+        "ecosystem": "rust",
+        "dependencies": ["actix-web"],
+        "dependency_prefixes": []
+    },
+    {
+        "name": "Axum",
+        "ecosystem": "rust",
+        "dependencies": ["axum"],
+        "dependency_prefixes": []
+    },
+    {
+        "name": "Rocket",
+        "ecosystem": "rust",
+        "dependencies": ["rocket"],
         "dependency_prefixes": []
     }
 ]

@@ -7,8 +7,14 @@ from app.discovery.file_classifier import FileClassifier
 from app.discovery.ignore import IgnoreRules
 from app.discovery.repository_analyzer import RepositoryAnalyzer
 from app.discovery.repository_scanner import RepositoryScanner
+from app.discovery.framework_detector import FrameworkDetector
+from app.discovery.repository_builder import RepositoryBuilder
+
 from app.ingestion.models import Repository
-from app.ingestion.repository_source import RepositorySource, RepositorySourceType
+from app.ingestion.repository_source import (
+    RepositorySource,
+    RepositorySourceType,
+)
 from app.ingestion.repository_ingestor import RepositoryIngestor
 
 
@@ -37,7 +43,14 @@ def test_discovery_pipeline(tmp_path):
     )
 
     (tmp_path / "package.json").write_text(
-        '{"name": "test-project"}'
+        '''
+        {
+            "name": "test-project",
+            "dependencies": {
+                "react": "^19.0.0"
+            }
+        }
+        '''
     )
 
     source = RepositorySource(
@@ -64,17 +77,50 @@ def test_discovery_pipeline(tmp_path):
 
     files, directories = scanner.scan(repository)
 
-    analyzer = RepositoryAnalyzer()
+    base_path = Path(__file__).parent.parent
 
-    metadata = analyzer.analyze(
+    framework_detector = FrameworkDetector(
+        manifest_definitions=(
+            base_path
+            / "dependencies"
+            / "definitions.json"
+        ),
+        framework_definitions=(
+            base_path
+            / "frameworks"
+            / "definitions.json"
+        ),
+    )
+
+    builder = RepositoryBuilder(
+        analyzer=RepositoryAnalyzer(),
+        framework_detector=framework_detector,
+    )
+
+    result = builder.build(
+        name=repository.name,
+        path=repository.path,
         files=files,
         directories=directories,
     )
 
-    assert metadata.total_files == 5
+    assert result.name == repository.name
+    assert result.path == repository.path
 
-    assert metadata.source_files == 1
-    assert metadata.test_files == 1
-    assert metadata.documentation_files == 1
-    assert metadata.build_files == 1
-    assert metadata.configuration_files == 1
+    assert result.metadata is not None
+
+    assert result.metadata.total_files == 5
+
+    assert result.metadata.source_files == 1
+    assert result.metadata.test_files == 1
+    assert result.metadata.documentation_files == 1
+    assert result.metadata.build_files == 1
+    assert result.metadata.configuration_files == 1
+
+    assert result.languages == result.metadata.languages
+
+    assert "Python" in result.languages
+    assert "JavaScript" in result.languages
+    assert "Markdown" in result.languages
+
+    assert "React" in result.frameworks

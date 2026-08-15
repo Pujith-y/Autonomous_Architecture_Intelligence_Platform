@@ -187,7 +187,7 @@ def test_scanner_can_follow_symlink_directories(
     assert Path("src/main.py") in relative_files
     assert Path("linked_src/main.py") in relative_files
 
-def test_scanner_does_not_duplicate_symlinked_directory(
+def test_scanner_handles_symlink_cycle(
     tmp_path,
 ):
     source_dir = tmp_path / "src"
@@ -197,11 +197,11 @@ def test_scanner_does_not_duplicate_symlinked_directory(
         "print('hello')"
     )
 
-    link = tmp_path / "linked_src"
+    loop = source_dir / "loop"
 
     try:
-        link.symlink_to(
-            source_dir,
+        loop.symlink_to(
+            tmp_path,
             target_is_directory=True,
         )
     except OSError:
@@ -217,7 +217,7 @@ def test_scanner_does_not_duplicate_symlinked_directory(
     )
 
     repository = Repository(
-        name="duplicate-test",
+        name="cycle-test",
         path=tmp_path,
         source=source,
     )
@@ -238,10 +238,9 @@ def test_scanner_does_not_duplicate_symlinked_directory(
 
     files, directories = scanner.scan(repository)
 
-    main_files = [
-        file
+    relative_files = {
+        file.relative_path
         for file in files
-        if file.name == "main.py"
-    ]
+    }
 
-    assert len(main_files) == 1
+    assert Path("src/main.py") in relative_files

@@ -7,8 +7,17 @@ from pygments.util import ClassNotFound
 class LanguageDetector:
 
     def detect(self, path: Path) -> str | None:
+        return self._detect_from_filename(path)
+
+    def _detect_from_filename(
+        self,
+        path: Path,
+    ) -> str | None:
+
         try:
-            lexer = get_lexer_for_filename(path.name)
+            lexer = get_lexer_for_filename(
+                path.name
+            )
 
         except ClassNotFound:
             return None
