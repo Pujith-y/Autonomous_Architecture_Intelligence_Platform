@@ -23,7 +23,7 @@ from app.ingestion.repository_source import (
 def test_real_portfolio_repository():
     source = RepositorySource(
         source_type=RepositorySourceType.GIT,
-        location="https://github.com/cordiverse/cordis",
+        location="https://github.com/Pujith-y/portfolio",
         branch=None,  # Use the default branch
         shallow=True,
     )
