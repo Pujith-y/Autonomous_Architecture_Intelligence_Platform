@@ -7,6 +7,15 @@ from app.repository_model.locations import (
     SourceLocation,
 )
 
+from app.repository_model.types import (
+    TypeReference,
+)
+
+from app.repository_model.signatures import (
+    GenericParameter,
+    Parameter,
+)
+
 from app.repository_model.entities import (
     Entity,
 )
@@ -24,6 +33,9 @@ __all__ = [
     "EntityKind",
     "RelationshipKind",
     "SourceLocation",
+    "TypeReference",
+    "GenericParameter",
+    "Parameter",
     "Entity",
     "Relationship",
     "RepositoryModel",

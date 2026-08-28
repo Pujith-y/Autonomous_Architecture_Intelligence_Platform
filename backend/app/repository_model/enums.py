@@ -36,34 +36,33 @@ class EntityKind(str, Enum):
 
 
 class RelationshipKind(str, Enum):
+    # Structural
     CONTAINS = "contains"
 
+    # Dependencies / references
     IMPORTS = "imports"
     EXPORTS = "exports"
-
-    INHERITS = "inherits"
-    IMPLEMENTS = "implements"
-    EXTENDS = "extends"
-
-    COMPOSES = "composes"
     USES = "uses"
     DEPENDS_ON = "depends_on"
     CALLS = "calls"
 
-    HAS_FIELD = "has_field"
-    HAS_METHOD = "has_method"
-    HAS_PARAMETER = "has_parameter"
+    # Type relationships
+    INHERITS = "inherits"
+    IMPLEMENTS = "implements"
+    EXTENDS = "extends"
+    COMPOSES = "composes"
 
+    # Function relationships
     RETURNS = "returns"
     ACCEPTS = "accepts"
 
+    # Metadata
     DECORATED_BY = "decorated_by"
     ANNOTATED_WITH = "annotated_with"
 
+    # Architecture / framework
     EXPOSES = "exposes"
     HANDLED_BY = "handled_by"
-
     MAPS_TO = "maps_to"
     RELATES_TO = "relates_to"
-
     CONFIGURES = "configures"

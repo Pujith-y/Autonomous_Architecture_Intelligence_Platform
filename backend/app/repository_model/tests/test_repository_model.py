@@ -7,6 +7,9 @@ from app.repository_model import (
     RelationshipKind,
     RepositoryModel,
     SourceLocation,
+    TypeReference,
+    Parameter,
+    GenericParameter,
 )
 
 
@@ -127,3 +130,122 @@ def test_entity_metadata():
 
     assert entity.metadata["http_method"] == "GET"
     assert entity.metadata["path"] == "/users"
+
+
+def test_type_reference():
+
+    user_type = TypeReference(
+        name="User",
+    )
+
+    assert user_type.name == "User"
+    assert user_type.generic_arguments == ()
+    assert user_type.is_optional is False
+
+
+def test_generic_type_reference():
+
+    user_type = TypeReference(
+        name="User",
+    )
+
+    list_type = TypeReference(
+        name="List",
+        generic_arguments=(user_type,),
+        is_collection=True,
+    )
+
+    assert list_type.name == "List"
+    assert list_type.is_collection is True
+    assert len(list_type.generic_arguments) == 1
+    assert list_type.generic_arguments[0].name == "User"
+
+
+def test_parameter():
+
+    parameter = Parameter(
+        name="user_id",
+        type=TypeReference(
+            name="int"
+        ),
+    )
+
+    assert parameter.name == "user_id"
+    assert parameter.type.name == "int"
+
+
+def test_parameter_with_default():
+
+    parameter = Parameter(
+        name="include_orders",
+        type=TypeReference(
+            name="bool"
+        ),
+        default_value="False",
+    )
+
+    assert parameter.default_value == "False"
+
+
+def test_generic_parameter():
+
+    generic = GenericParameter(
+        name="T",
+        constraints=(
+            TypeReference(
+                name="BaseEntity"
+            ),
+        ),
+    )
+
+    assert generic.name == "T"
+    assert len(generic.constraints) == 1
+    assert (
+        generic.constraints[0].name
+        == "BaseEntity"
+    )
+
+
+def test_function_signature():
+
+    entity = Entity(
+        id="function:get-user",
+        kind=EntityKind.FUNCTION,
+        name="get_user",
+        language="Python",
+        parameters=[
+            Parameter(
+                name="user_id",
+                type=TypeReference(
+                    name="int"
+                ),
+            ),
+            Parameter(
+                name="include_orders",
+                type=TypeReference(
+                    name="bool"
+                ),
+                default_value="False",
+            ),
+        ],
+        return_type=TypeReference(
+            name="User"
+        ),
+    )
+
+    assert len(entity.parameters) == 2
+
+    assert (
+        entity.parameters[0].type.name
+        == "int"
+    )
+
+    assert (
+        entity.parameters[1].default_value
+        == "False"
+    )
+
+    assert (
+        entity.return_type.name
+        == "User"
+    )
