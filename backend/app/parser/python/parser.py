@@ -44,6 +44,10 @@ from app.parser.python.utils.ast_utils import (
     location,
 )
 
+from app.parser.python.nodes.enum_parser import (
+    PythonEnumParser,
+)
+
 class PythonRepositoryParser:
 
     def __init__(self):
@@ -67,6 +71,8 @@ class PythonRepositoryParser:
         self.variable_parser = PythonVariableParser()
 
         self.call_parser = PythonCallParser()
+
+        self.enum_parser = PythonEnumParser()
 
 
 
@@ -133,14 +139,26 @@ class PythonRepositoryParser:
                 node,
                 ast.ClassDef,
             ):
-                self.class_parser.parse_class(
-                    node=node,
-                    path=path,
-                    parent_id=parent_id,
-                    parent_qualified_name=parent_qualified_name,
-                    model=model,
-                    parse_body=self._parse_body,
-                )
+                if self.enum_parser.is_enum(node):
+
+                    self._parse_enum(
+                        node=node,
+                        path=path,
+                        parent_id=parent_id,
+                        parent_qualified_name=parent_qualified_name,
+                        model=model,
+                    )
+
+                else:
+
+                    self.class_parser.parse_class(
+                        node=node,
+                        path=path,
+                        parent_id=parent_id,
+                        parent_qualified_name=parent_qualified_name,
+                        model=model,
+                        parse_body=self._parse_body,
+                    )
 
             elif isinstance(
                 node,
@@ -229,7 +247,10 @@ class PythonRepositoryParser:
                     )
 
             elif (
-                parent.kind == EntityKind.CLASS
+                parent.kind in {
+                    EntityKind.CLASS,
+                    EntityKind.ENUM,
+                }
                 and isinstance(node, ast.AnnAssign)
             ):
 
@@ -242,7 +263,10 @@ class PythonRepositoryParser:
                 )
 
             elif (
-                parent.kind == EntityKind.CLASS
+                parent.kind in {
+                    EntityKind.CLASS,
+                    EntityKind.ENUM,
+                }
                 and isinstance(node, ast.Assign)
             ):
 
@@ -341,6 +365,31 @@ class PythonRepositoryParser:
         self.call_parser.parse_calls(
             node=node,
             function_id=entity.id,
+            model=model,
+        )
+
+        self._parse_body(
+            body=node.body,
+            path=path,
+            model=model,
+            parent=entity,
+        )
+
+
+    def _parse_enum(
+        self,
+        node,
+        path,
+        parent_id,
+        parent_qualified_name,
+        model,
+    ):
+
+        entity = self.enum_parser.parse_enum(
+            node=node,
+            path=path,
+            parent_id=parent_id,
+            parent_qualified_name=parent_qualified_name,
             model=model,
         )
 

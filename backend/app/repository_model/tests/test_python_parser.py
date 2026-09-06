@@ -1760,3 +1760,241 @@ def get_user():
 
     assert len(variables) == 1
     assert variables[0].name == "user"
+
+
+def test_parser_detects_enum(
+    tmp_path,
+):
+
+    source = """
+from enum import Enum
+
+
+class Status(Enum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+"""
+
+    path = tmp_path / "status.py"
+
+    path.write_text(
+        source,
+        encoding="utf-8",
+    )
+
+    model = PythonRepositoryParser().parse(path)
+
+    enum = next(
+        entity
+        for entity in model.entities
+        if entity.kind == EntityKind.ENUM
+    )
+
+    assert enum.name == "Status"
+
+    assert enum.qualified_name == (
+        "status.Status"
+    )
+
+def test_parser_detects_enum_members(
+    tmp_path,
+):
+
+    source = """
+from enum import Enum
+
+
+class Status(Enum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+"""
+
+    path = tmp_path / "status.py"
+
+    path.write_text(
+        source,
+        encoding="utf-8",
+    )
+
+    model = PythonRepositoryParser().parse(path)
+
+    enum = next(
+        entity
+        for entity in model.entities
+        if entity.kind == EntityKind.ENUM
+    )
+
+    fields = [
+        entity
+        for entity in model.entities
+        if entity.kind == EntityKind.FIELD
+    ]
+
+    field_names = {
+        field.name
+        for field in fields
+    }
+
+    assert "ACTIVE" in field_names
+    assert "INACTIVE" in field_names
+
+    relationships = [
+        relationship
+        for relationship in model.relationships
+        if relationship.source_id == enum.id
+    ]
+
+    assert any(
+        relationship.target_id.endswith(
+            ".ACTIVE"
+        )
+        for relationship in relationships
+    )
+
+def test_parser_detects_constructor(
+    tmp_path,
+):
+
+    source = """
+class User:
+
+    def __init__(
+        self,
+        name: str,
+    ):
+        self.name = name
+"""
+
+    path = tmp_path / "user.py"
+
+    path.write_text(
+        source,
+        encoding="utf-8",
+    )
+
+    model = PythonRepositoryParser().parse(path)
+
+    constructor = next(
+        entity
+        for entity in model.entities
+        if entity.kind == EntityKind.CONSTRUCTOR
+    )
+
+    assert constructor.name == "__init__"
+
+    assert constructor.qualified_name == (
+        "user.User.__init__"
+    )
+
+    assert constructor.parameters[0].name == "self"
+
+    assert constructor.parameters[1].name == "name"
+
+
+
+def test_parser_creates_constructor_relationship(
+    tmp_path,
+):
+
+    source = """
+class User:
+
+    def __init__(self):
+        pass
+"""
+
+    path = tmp_path / "user.py"
+
+    path.write_text(
+        source,
+        encoding="utf-8",
+    )
+
+    model = PythonRepositoryParser().parse(path)
+
+    user = next(
+        entity
+        for entity in model.entities
+        if (
+            entity.kind == EntityKind.CLASS
+            and entity.name == "User"
+        )
+    )
+
+    constructor = next(
+        entity
+        for entity in model.entities
+        if entity.kind == EntityKind.CONSTRUCTOR
+    )
+
+    relationship = next(
+        relationship
+        for relationship in model.relationships
+        if (
+            relationship.source_id == user.id
+            and relationship.target_id
+            == constructor.id
+        )
+    )
+
+    assert relationship.kind == (
+        RelationshipKind.CONTAINS
+    )
+
+def test_all_relationships_reference_existing_entities(
+    tmp_path,
+):
+
+    source = """
+import os
+
+
+class Base:
+    pass
+
+
+class User(Base):
+
+    name: str = "Pujith"
+
+    def __init__(self, value):
+        self.value = value
+
+    def get_value(self):
+        helper()
+
+
+def helper():
+    pass
+
+
+@decorator
+def decorated_function():
+    helper()
+"""
+
+    path = tmp_path / "service.py"
+
+    path.write_text(
+        source,
+        encoding="utf-8",
+    )
+
+    model = PythonRepositoryParser().parse(path)
+
+    entity_ids = {
+        entity.id
+        for entity in model.entities
+    }
+
+    for relationship in model.relationships:
+
+        assert relationship.source_id in entity_ids, (
+            f"Relationship source does not exist: "
+            f"{relationship.source_id}"
+        )
+
+        assert relationship.target_id in entity_ids, (
+            f"Relationship target does not exist: "
+            f"{relationship.target_id}"
+        )

@@ -77,9 +77,25 @@ class PythonFunctionParser:
 
         entity_id = f"method:{qualified_name}"
 
+        if node.name == "__init__":
+
+            entity_kind = EntityKind.CONSTRUCTOR
+
+            entity_id = (
+                f"constructor:{qualified_name}"
+            )
+
+        else:
+
+            entity_kind = EntityKind.METHOD
+
+            entity_id = (
+                f"method:{qualified_name}"
+            )
+
         entity = Entity(
             id=entity_id,
-            kind=EntityKind.METHOD,
+            kind=entity_kind,
             name=node.name,
             qualified_name=qualified_name,
             location=location(path, node),
