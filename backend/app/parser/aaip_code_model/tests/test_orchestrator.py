@@ -88,7 +88,7 @@ def print_graph(model):  # pragma: no cover - diagnostic aid only
     print("=" * 80)
     print("\nENTITIES\n" + "-" * 80)
     for entity in model.entities:
-        print(f"{entity.id:70} {entity.kind.value:15} external={entity.metadata.get('external', False)}")
+        print(f"{entity.id:70} {entity.kind.value:15} {entity.parameters} {entity.return_type} {entity.generic_parameters} {entity.metadata} external={entity.metadata.get('external', False)}")
     print("\nRELATIONSHIPS\n" + "-" * 80)
     for relationship in model.relationships:
         print(f"{relationship.source_id:70} --{relationship.kind.value}--> {relationship.target_id}")

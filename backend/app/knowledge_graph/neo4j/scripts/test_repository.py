@@ -1,0 +1,368 @@
+from app.knowledge_graph.neo4j.repository import Neo4jRepository
+from app.repository_model import (
+    RepositoryModel, 
+    Entity, 
+    Relationship, 
+    EntityKind, 
+    RelationshipKind,
+    SourceLocation, 
+    TypeReference,
+    Parameter,
+    GenericParameter,
+)
+
+
+
+model = RepositoryModel(
+    name="test-repository",
+)
+
+source_location = SourceLocation(
+    file="user.py",
+    start_line=10,
+    end_line=20,
+    start_column=0,
+    end_column=10,
+)
+
+model.entities.append(
+    Entity(
+        id="python:test.User",
+        kind=EntityKind.CLASS,
+        name="User",
+        qualified_name="test.User",
+        language="python",
+        location=source_location,
+        metadata={
+            "alias": "BaseUser",
+            "candidates": ["base.BaseUser", "python.base.BaseUser"]
+        }
+    )
+)
+model.entities.append(
+    Entity(
+        id="test:add",
+        kind=EntityKind.METHOD,
+        name="add",
+        qualified_name="Test.add",
+        language="python",
+        parameters=[
+            Parameter(
+                name="a",
+                type=TypeReference(name="int"),
+            ),
+            Parameter(
+                name="b",
+                type=TypeReference(name="int"),
+            ),
+        ],
+        return_type=TypeReference(name="int"),
+    )
+)
+model.entities.append(
+    Entity(
+        id="test:untyped",
+        kind=EntityKind.FUNCTION,
+        name="untyped",
+        qualified_name="untyped",
+        language="python",
+        parameters=[
+            Parameter(
+                name="value",
+                type=None,
+            )
+        ],
+    )
+)
+model.entities.append(
+    Entity(
+        id="test:variadic",
+        kind=EntityKind.FUNCTION,
+        name="variadic",
+        qualified_name="variadic",
+        language="python",
+        parameters=[
+            Parameter(
+                name="args",
+                type=TypeReference(name="str"),
+                is_variadic=True,
+            )
+        ],
+    )
+)
+model.entities.append(
+    Entity(
+        id="test:defaults",
+        kind=EntityKind.FUNCTION,
+        name="defaults",
+        qualified_name="defaults",
+        language="python",
+        parameters=[
+            Parameter(
+                name="count",
+                type=TypeReference(name="int"),
+                default_value="10",
+            ),
+            Parameter(
+                name="name",
+                type=TypeReference(name="str"),
+                default_value='"Pujith"',
+            ),
+        ],
+    )
+)
+model.entities.append(
+    Entity(
+        id="test:list_users",
+        kind=EntityKind.METHOD,
+        name="list_users",
+        qualified_name="UserService.list_users",
+        language="python",
+        return_type=TypeReference(
+            name="List",
+            generic_arguments=(
+                TypeReference(name="User"),
+            ),
+            is_collection=True,
+        ),
+    )
+)
+model.entities.append(
+    Entity(
+        id="test:map_users",
+        kind=EntityKind.METHOD,
+        name="map_users",
+        qualified_name="UserService.map_users",
+        language="python",
+        return_type=TypeReference(
+            name="Dict",
+            generic_arguments=(
+                TypeReference(name="str"),
+                TypeReference(name="User"),
+            ),
+        ),
+    )
+)
+model.entities.append(
+    Entity(
+        id="test:nested_generic",
+        kind=EntityKind.METHOD,
+        name="nested_generic",
+        qualified_name="Test.nested_generic",
+        language="python",
+        return_type=TypeReference(
+            name="List",
+            generic_arguments=(
+                TypeReference(
+                    name="Dict",
+                    generic_arguments=(
+                        TypeReference(name="str"),
+                        TypeReference(name="User"),
+                    ),
+                ),
+            ),
+        ),
+    )
+)
+model.entities.append(
+    Entity(
+        id="test:union",
+        kind=EntityKind.METHOD,
+        name="union",
+        qualified_name="Test.union",
+        language="python",
+        parameters=[
+            Parameter(
+                name="value",
+                type=TypeReference(
+                    name="Union",
+                    union_types=(
+                        TypeReference(name="User"),
+                        TypeReference(name="Admin"),
+                    ),
+                ),
+            )
+        ],
+    )
+)
+model.entities.append(
+    Entity(
+        id="test:optional",
+        kind=EntityKind.METHOD,
+        name="optional",
+        qualified_name="Test.optional",
+        language="python",
+        parameters=[
+            Parameter(
+                name="user",
+                type=TypeReference(
+                    name="User",
+                    is_optional=True,
+                ),
+            )
+        ],
+    )
+)
+model.entities.append(
+    Entity(
+        id="test:repository",
+        kind=EntityKind.CLASS,
+        name="Repository",
+        qualified_name="Repository",
+        language="java",
+        generic_parameters=[
+            GenericParameter(
+                name="T",
+            ),
+            GenericParameter(
+                name="ID",
+            ),
+        ],
+    )
+)
+model.entities.append(
+    Entity(
+        id="test:keyword_only",
+        kind=EntityKind.FUNCTION,
+        name="keyword_only",
+        qualified_name="keyword_only",
+        language="python",
+        parameters=[
+            Parameter(
+                name="timeout",
+                type=TypeReference(name="int"),
+                default_value="30",
+                is_keyword_only=True,
+            )
+        ],
+    )
+)
+model.entities.append(
+    Entity(
+        id="python:test.User.validate",
+        kind=EntityKind.METHOD,
+        name="validate",
+        qualified_name="test.User.validate",
+        language="python",
+        parameters=[],
+        return_type=TypeReference(name="bool"),
+        generic_parameters=[],
+    )
+)
+model.entities.append(
+    Entity(
+        id="test:bounded_repository",
+        kind=EntityKind.CLASS,
+        name="BoundedRepository",
+        qualified_name="BoundedRepository",
+        language="java",
+        generic_parameters=[
+            GenericParameter(
+                name="T",
+                constraints=(
+                    TypeReference(name="BaseEntity"),
+                ),
+            )
+        ],
+    )
+)
+model.entities.append(
+    Entity(
+        id="test:everything",
+        kind=EntityKind.METHOD,
+        name="everything",
+        qualified_name="Test.everything",
+        language="python",
+
+        parameters=[
+            Parameter(
+                name="users",
+                type=TypeReference(
+                    name="List",
+                    generic_arguments=(
+                        TypeReference(name="User"),
+                    ),
+                    is_collection=True,
+                ),
+            ),
+
+            Parameter(
+                name="value",
+                type=TypeReference(
+                    name="Union",
+                    union_types=(
+                        TypeReference(name="User"),
+                        TypeReference(name="Admin"),
+                    ),
+                ),
+                default_value="None",
+            ),
+
+            Parameter(
+                name="args",
+                type=TypeReference(name="str"),
+                is_variadic=True,
+            ),
+
+            Parameter(
+                name="timeout",
+                type=TypeReference(name="int"),
+                default_value="30",
+                is_keyword_only=True,
+            ),
+
+            Parameter(
+                name="anything",
+                type=None,
+            ),
+        ],
+
+        return_type=TypeReference(
+            name="Dict",
+            generic_arguments=(
+                TypeReference(name="str"),
+                TypeReference(
+                    name="List",
+                    generic_arguments=(
+                        TypeReference(name="User"),
+                    ),
+                ),
+            ),
+        ),
+
+        generic_parameters=[
+            GenericParameter(
+                name="T",
+                constraints=(
+                    TypeReference(name="BaseEntity"),
+                ),
+            ),
+            GenericParameter(
+                name="R",
+            ),
+        ],
+
+        metadata={
+            "test_case": "everything",
+            "version": 1,
+        },
+    )
+)
+model.relationships.append(
+    Relationship(
+        source_id="python:test.User",
+        target_id="python:test.User.validate",
+        kind=RelationshipKind.CALLS,
+        metadata= {
+            "resolution_method": "self_receiver",
+            "language": "python",
+            "file": "user.py",
+            "line": 14,
+        }
+    )
+)
+
+repository = Neo4jRepository()
+repository.save(model)
+
+print("Entity saved successfully")
