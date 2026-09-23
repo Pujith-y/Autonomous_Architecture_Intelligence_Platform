@@ -4,6 +4,8 @@ from enum import Enum
 class EntityKind(str, Enum):
     REPOSITORY = "repository"
 
+    FILE = "file"
+
     PACKAGE = "package"
     MODULE = "module"
 
@@ -39,6 +41,8 @@ class RelationshipKind(str, Enum):
     # Structural
     CONTAINS = "contains"
 
+    CREATES = "creates"
+
     # Dependencies / references
     IMPORTS = "imports"
     EXPORTS = "exports"
@@ -51,6 +55,13 @@ class RelationshipKind(str, Enum):
     IMPLEMENTS = "implements"
     EXTENDS = "extends"
     COMPOSES = "composes"
+    OVERRIDES = "overrides"
+
+    # Non-call member reference (spec 8): `user.profile` referenced as a
+    # value (e.g. `return self.repository`), where the target field is
+    # statically known -- distinct from CALLS (no invocation happened) and
+    # from USES (too generic to say *which* member was touched).
+    REFERENCES = "references"
 
     # Function relationships
     RETURNS = "returns"

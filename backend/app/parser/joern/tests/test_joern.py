@@ -5,20 +5,22 @@ from app.parser.joern.client import JoernClient
 
 def main():
 
-    client = JoernClient()
+    joern = JoernClient()
 
-    repository = Path(
-        "joern_test_languages/javascript"
+    script_path = Path(
+        "app/parser/joern/scripts/analyze.sc"
     )
 
-    output = client.run_script(
-        script_path=Path(
-            "app/parser/joern/scripts/analyze.sc"
-        ),
-        repository=repository,
+    repository_path = Path(
+        "app/parser/joern/tests/fixtures/python"
     )
 
-    print(output)
+    result = joern.run_script(
+        script_path=script_path,
+        repository=repository_path
+    )
+
+    print(result)
 
 
 if __name__ == "__main__":
