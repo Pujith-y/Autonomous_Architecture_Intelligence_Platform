@@ -21,9 +21,20 @@ class FrameworkDetector:
 
     def __init__(
         self,
-        manifest_definitions: Path,
-        framework_definitions: Path,
+        manifest_definitions: Path | None = None,
+        framework_definitions: Path | None = None,
     ):
+        base_path = Path(__file__).parent
+
+        if manifest_definitions is None:
+            manifest_definitions = (
+                base_path / "dependencies" / "definitions.json"
+            )
+
+        if framework_definitions is None:
+            framework_definitions = (
+                base_path / "frameworks" / "definitions.json"
+            )
 
         manifest_registry = ManifestRegistry(
             manifest_definitions
@@ -33,10 +44,8 @@ class FrameworkDetector:
             manifest_registry
         )
 
-        self.framework_registry = (
-            FrameworkRegistry(
-                framework_definitions
-            )
+        self.framework_registry = FrameworkRegistry(
+            framework_definitions
         )
 
         self.matcher = FrameworkMatcher()

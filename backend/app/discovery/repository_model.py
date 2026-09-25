@@ -11,7 +11,7 @@ from app.discovery.repository_analyzer import (
 
 
 @dataclass
-class RepositoryModel:
+class DiscoveredRepository:
     name: str
     path: Path
 

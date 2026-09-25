@@ -12,7 +12,7 @@ from app.discovery.framework_detector import (
 )
 
 from app.discovery.repository_model import (
-    RepositoryModel,
+    DiscoveredRepository,
 )
 
 
@@ -32,7 +32,7 @@ class RepositoryBuilder:
         path,
         files: list[DiscoveredFile],
         directories: list[DiscoveredDirectory],
-    ) -> RepositoryModel:
+    ) -> DiscoveredRepository:
 
         metadata = self.analyzer.analyze(
             files,
@@ -43,7 +43,7 @@ class RepositoryBuilder:
             files
         )
 
-        return RepositoryModel(
+        return DiscoveredRepository(
             name=name,
             path=path,
             files=files,

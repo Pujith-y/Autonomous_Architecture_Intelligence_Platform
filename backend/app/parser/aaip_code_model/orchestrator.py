@@ -40,6 +40,7 @@ from app.parser.aaip_code_model.common import (
     normalize_reference, simple_name_of, normalize_relative_path,
 )
 from app.parser.aaip_code_model.resolution import ResolutionMethod as RM, UnresolvedReason as UR
+from app.repository_model.types import TypeReference
 
 
 class _LegacyFile(Protocol):
@@ -91,7 +92,9 @@ _NATIVE_TYPES_BY_LANGUAGE = {
     "java": {
         "byte", "short", "int", "long",
         "float", "double", "boolean", "char",
-        "String", "Object",
+        "String", "Object", "void", "Void", "Integer", "Double", "Boolean",
+        "Character", "Long", "Float", "Short", "Byte",
+
     },
     "javascript": {
         "string", "number", "boolean", "bigint",
@@ -109,6 +112,19 @@ _TYPE_LIKE_KINDS = {
     EntityKind.CLASS,
     EntityKind.INTERFACE,
     EntityKind.ENUM,
+}
+
+# Entities whose `return_type` means "what this callable returns" and whose
+# `parameters` mean "what this callable accepts" -- the RETURNS/ACCEPTS
+# signature relationships only ever originate from these. A FIELD entity
+# also stores its declared type in `.return_type` (an existing, established
+# convention in this codebase used by `_field_entity_type` below), but a
+# field's type is a different relationship, not RETURNS/ACCEPTS, so FIELD is
+# deliberately excluded here.
+_CALLABLE_KINDS = {
+    EntityKind.FUNCTION,
+    EntityKind.METHOD,
+    EntityKind.CONSTRUCTOR,
 }
 
 
@@ -194,6 +210,96 @@ def _location_line(entity: Entity | None) -> int | None:
     loc = getattr(entity, "location", None)
     return getattr(loc, "start_line", None) if loc is not None else None
 
+def _namespace_repository_graph(
+    repository_name: str,
+    entities: list[Entity],
+    relationships: list[Relationship],
+    metadata: dict[str, Any],
+) -> tuple[list[Entity], list[Relationship], dict[str, Any]]:
+    """
+    Make entity IDs globally unique across repositories.
+
+    Internal orchestration uses repository-local IDs so that all resolution
+    logic remains simple. Only the final RepositoryModel is namespaced.
+
+    Example:
+
+        python:test.User
+            ->
+        normalization::python:test.User
+
+    The repository entity itself is already globally identified as:
+
+        repository::normalization
+
+    so it is left unchanged.
+    """
+
+    repository_id = f"repository::{repository_name}"
+
+    # old_id -> globally unique new_id
+    id_map: dict[str, str] = {}
+
+    for entity in entities:
+        if entity.id == repository_id:
+            id_map[entity.id] = entity.id
+        else:
+            id_map[entity.id] = f"{repository_name}::{entity.id}"
+
+    # Update entity IDs.
+    for entity in entities:
+        entity.id = id_map[entity.id]
+
+    # Update every relationship endpoint.
+    for relationship in relationships:
+        relationship.source_id = id_map.get(
+            relationship.source_id,
+            relationship.source_id,
+        )
+        relationship.target_id = id_map.get(
+            relationship.target_id,
+            relationship.target_id,
+        )
+
+    # Some orchestrator metadata contains entity IDs too.
+    # Keep that metadata consistent with the final graph.
+    if "external_entity_ids" in metadata:
+        metadata["external_entity_ids"] = [
+            id_map.get(entity_id, entity_id)
+            for entity_id in metadata["external_entity_ids"]
+        ]
+
+    if "unresolved_references" in metadata:
+        for reference in metadata["unresolved_references"]:
+            if "referrer_id" in reference:
+                reference["referrer_id"] = id_map.get(
+                    reference["referrer_id"],
+                    reference["referrer_id"],
+                )
+
+            if "candidates" in reference:
+                reference["candidates"] = [
+                    id_map.get(candidate, candidate)
+                    for candidate in reference["candidates"]
+                ]
+
+    if "identity_collisions" in metadata:
+        for collision in metadata["identity_collisions"]:
+            if "id" in collision:
+                collision["id"] = id_map.get(
+                    collision["id"],
+                    collision["id"],
+                )
+
+            for side in ("kept", "dropped"):
+                entity_info = collision.get(side)
+                if entity_info and "id" in entity_info:
+                    entity_info["id"] = id_map.get(
+                        entity_info["id"],
+                        entity_info["id"],
+                    )
+
+    return entities, relationships, metadata
 
 def build_repository_graph(legacy: _LegacyRepo) -> RepositoryModel:
     entity_registry = _EntityRegistry()
@@ -213,6 +319,16 @@ def build_repository_graph(legacy: _LegacyRepo) -> RepositoryModel:
     import_candidates_by_module: dict[str, dict[str, list[str]]] = {}
     module_language: dict[str, str] = {}
     module_qn_by_id: dict[str, str] = {}
+
+    # entity id -> the module it was declared in (spec: "critical missing
+    # context"). Type-reference resolution needs the *declaring* module's
+    # imports/language/scope, not the caller's -- so this is its own index,
+    # not a reuse of `imports_by_module` (keyed by module, not entity) or
+    # any existing per-call context. First module wins on a repeat sighting
+    # of the same id (mirrors `_EntityRegistry.add`'s own dedup: the entity
+    # itself doesn't change meaning just because another file referenced it
+    # again), so this never gets arbitrarily overwritten.
+    entity_module_by_id: dict[str, str] = {}
 
     # Deferred cross-references collected across every file.
     pending_bases: list[tuple[str, str, str]] = []
@@ -260,6 +376,7 @@ def build_repository_graph(legacy: _LegacyRepo) -> RepositoryModel:
 
         for e in result["entities"]:
             entity_registry.add(e)
+            entity_module_by_id.setdefault(e.id, module_id)
         for r in result["relationships"]:
             relationship_registry.add(r)
 
@@ -497,29 +614,161 @@ def build_repository_graph(legacy: _LegacyRepo) -> RepositoryModel:
             meta["line"] = line
         return meta
 
-    def _resolve_type_name(module_id: str, type_name: str, referrer_id: str) -> str | None:
+    def _resolve_type_name(
+        module_id: str, type_name: str, referrer_id: str, relation: str = "receiver_type",
+    ) -> tuple[str | None, str | None]:
         """Resolve a type *name* (from a parameter annotation, a field
         declaration, or a callee's declared return type) to a real
         CLASS/INTERFACE/ENUM entity via the normal `_resolve` pipeline --
         shared by every receiver-typing path (typed parameter, field
-        access, alias chase, return-type propagation) so they all apply the
-        same priority order and the same "never guess" rule. Returns None
-        if `_resolve` can't pin down a single entity, or if what it found
-        isn't actually a type (e.g. resolves to a function instead)."""
+        access, alias chase, return-type propagation) *and* by the
+        declaration-level RETURNS/ACCEPTS signature resolution below, so
+        every one of them applies the same priority order and the same
+        "never guess" rule through a single implementation. Returns
+        (target_id, resolution_method); either half is None if `_resolve`
+        can't pin down a single entity, or if what it found isn't actually
+        a type (e.g. resolves to a function instead).
+
+        `relation` is only the diagnostic label attached to an
+        unresolved/ambiguous reference (what `_record_unresolved` calls it
+        "trying to do") -- it never changes resolution behavior. Existing
+        receiver-typing callers don't pass it and keep the historical
+        "receiver_type" label unchanged; RETURNS/ACCEPTS resolution passes
+        its own so an unresolved signature type is correctly described as
+        such rather than mislabeled as a receiver-type lookup.
+        """
 
         language = module_language.get(module_id)
         if type_name in _NATIVE_TYPES_BY_LANGUAGE.get(language, set()):
-            return None
-        
-        target, _ = _resolve(module_id, type_name, EntityKind.CLASS, referrer_id, "receiver_type")
+            return None, None
+
+        target, method = _resolve(module_id, type_name, EntityKind.CLASS, referrer_id, relation)
         if target is None:
-            return None
+            return None, None
+        if method == RM.EXTERNAL.value:
+            # An import-evidenced but not repository-defined type (e.g.
+            # `from typing import List` with no `List` entity in this
+            # repository) resolves "successfully" as far as `_resolve` is
+            # concerned -- that's the correct, intentional behavior for
+            # decorator/annotation resolution, which allow_external exists
+            # for. But `_resolve_type_name` promises callers a *repository*
+            # type-like entity (its own docstring: "a real CLASS/INTERFACE/
+            # ENUM entity"), and every caller -- receiver typing as much as
+            # the new RETURNS/ACCEPTS signature resolution -- exists to
+            # answer "does this repository define this type", never "is
+            # this recognized as coming from somewhere". Treating an
+            # external symbol as an acceptable target here is exactly the
+            # native/external leak this function is supposed to prevent
+            # (spec: "ignore native/external types", never a graph node for
+            # `List`/`Dict`/`Union` themselves). This costs existing
+            # receiver-typing callers nothing observable: an external class
+            # has no CONTAINS-based members in the registry, so a call
+            # resolved against it was already going to fail to find any
+            # method and end up unresolved either way -- only the recorded
+            # reason changes (receiver_type_unknown instead of a
+            # method-not-found against a phantom external class).
+            return None, None
         target_entity = entity_registry.by_id.get(target)
         if target_entity is None or target_entity.kind not in (
             EntityKind.CLASS, EntityKind.INTERFACE, EntityKind.ENUM,
         ):
-            return None
-        return target
+            return None, None
+        return target, method
+
+    def _resolve_type_reference_entities(
+        module_id: str,
+        type_ref: TypeReference,
+        referrer_id: str,
+        relation: str = "receiver_type",
+    ) -> list[tuple[str, str | None]]:
+        """Resolve every repository-defined type reachable from a
+        TypeReference -- the top-level type, its generic arguments, and its
+        union members, recursively (`List[User]` -> User; `Dict[str, User]`
+        -> User; `Union[User, Admin]` -> User, Admin). This is the single
+        shared traversal for both RETURNS (declared return types) and
+        ACCEPTS (declared parameter types); it does not duplicate
+        `_resolve_type_name`'s resolution logic, only recurses around it.
+
+        Native/external types are ignored (never fabricated into fake graph
+        nodes). Unresolved or ambiguous types are ignored -- `_resolve_type_name`
+        already recorded *why* via the normal unresolved-reference
+        machinery, so nothing here needs to guess or re-report.
+
+        Returns a deduplicated, first-occurrence-order list of
+        `(target_id, resolution_method)` pairs -- the same provenance
+        `_resolve_type_name` produced, not discarded, so a RETURNS/ACCEPTS
+        relationship built from this can carry real metadata (spec:
+        preserve provenance) rather than a fabricated resolution method.
+        Encountering the same repository type via more than one path
+        (e.g. it appears in two generic arguments) collapses to one entry,
+        keeping the resolution method from wherever it was first found.
+        """
+        resolved: list[tuple[str, str | None]] = []
+
+        type_name = type_ref.qualified_name or type_ref.name
+        if type_name:
+            target, method = _resolve_type_name(module_id, type_name, referrer_id, relation)
+            if target is not None:
+                resolved.append((target, method))
+
+        for argument in type_ref.generic_arguments:
+            resolved.extend(
+                _resolve_type_reference_entities(module_id, argument, referrer_id, relation)
+            )
+
+        for union_type in type_ref.union_types:
+            resolved.extend(
+                _resolve_type_reference_entities(module_id, union_type, referrer_id, relation)
+            )
+
+        deduped: dict[str, str | None] = {}
+        for target, method in resolved:
+            deduped.setdefault(target, method)
+        return list(deduped.items())
+
+    # RETURNS / ACCEPTS: declaration-level signature relationships (distinct
+    # from the *value*-type questions `_field_entity_type`/`_method_return_type`
+    # answer above -- those exist for call/receiver propagation and must
+    # keep returning a single concrete class, e.g. List for `-> List[User]`,
+    # not User). This is the integration point the recursive TypeReference
+    # resolver was missing: every FUNCTION/METHOD/CONSTRUCTOR entity's
+    # declared return type and parameter types are walked -- including
+    # nested generic arguments and union members -- and every
+    # repository-defined type found becomes a relationship. Native,
+    # external, unresolved and ambiguous types are already filtered out by
+    # `_resolve_type_reference_entities` itself (which also already
+    # recorded *why*, via the normal `_resolve` unresolved-reference path)
+    # -- nothing here second-guesses that by guessing a target.
+    for entity in entity_registry.values():
+        if entity.kind not in _CALLABLE_KINDS:
+            continue
+        decl_module_id = entity_module_by_id.get(entity.id)
+        if decl_module_id is None:
+            continue  # no recorded module context for this entity -- can't resolve against its imports/scope
+
+        if entity.return_type is not None:
+            for target, method in _resolve_type_reference_entities(
+                decl_module_id, entity.return_type, entity.id, "returns",
+            ):
+                relationship_registry.add(
+                    Relationship(
+                        source_id=entity.id, target_id=target, kind=RelationshipKind.RETURNS,
+                        metadata=_meta(decl_module_id, entity.id, method),
+                    )
+                )
+
+        for parameter in entity.parameters:
+            if parameter.type is None:
+                continue
+            for target, method in _resolve_type_reference_entities(
+                decl_module_id, parameter.type, entity.id, "accepts",
+            ):
+                relationship_registry.add(
+                    Relationship(
+                        source_id=entity.id, target_id=target, kind=RelationshipKind.ACCEPTS,
+                        metadata=_meta(decl_module_id, entity.id, method),
+                    )
+                )
 
     for module_id, class_id, base_name in pending_bases:
         target, method = _resolve(module_id, base_name, EntityKind.CLASS, class_id, "inherits")
@@ -729,17 +978,29 @@ def build_repository_graph(legacy: _LegacyRepo) -> RepositoryModel:
         if entity is None or entity.return_type is None:
             return None
         type_name = entity.return_type.qualified_name or entity.return_type.name
-        return _resolve_type_name(module_id, type_name, caller_id) if type_name else None
+        if not type_name:
+            return None
+        target, _method = _resolve_type_name(module_id, type_name, caller_id)
+        return target
 
     def _method_return_type(method_entity_id: str, module_id: str, caller_id: str) -> str | None:
         """The class a METHOD/FUNCTION entity's declared return type names
         (spec 4/18/19) -- never inferred from the method's name, only its
-        recorded, explicit return-type annotation."""
+        recorded, explicit return-type annotation.
+
+        This is deliberately a *single* value-type answer, distinct from
+        the RETURNS signature-relationship resolution below: for `def
+        get_users() -> List[User]:` the runtime receiver type a further
+        `.something()` call chains through is List, not User, so this must
+        never be swapped for the recursive TypeReference resolver."""
         entity = entity_registry.by_id.get(method_entity_id)
         if entity is None or entity.return_type is None:
             return None
         type_name = entity.return_type.qualified_name or entity.return_type.name
-        return _resolve_type_name(module_id, type_name, caller_id) if type_name else None
+        if not type_name:
+            return None
+        target, _method = _resolve_type_name(module_id, type_name, caller_id)
+        return target
 
     def _resolve_bare_call(module_id: str, simple: str) -> tuple[str | None, str | None]:
         """A receiverless call (`get_user()`, spec 20): explicit import
@@ -799,7 +1060,7 @@ def build_repository_graph(legacy: _LegacyRepo) -> RepositoryModel:
             type_name = type_ref.qualified_name or type_ref.name
             if not type_name:
                 return None, None
-            target = _resolve_type_name(module_id, type_name, caller_id)
+            target, _method = _resolve_type_name(module_id, type_name, caller_id)
             return (target, RM.TYPED_RECEIVER.value) if target else (None, None)
 
         local_types = caller.metadata.get("local_constructor_types") or {}
@@ -815,7 +1076,7 @@ def build_repository_graph(legacy: _LegacyRepo) -> RepositoryModel:
 
             local_type_name = local_types.get(current)
             if local_type_name:
-                target = _resolve_type_name(module_id, local_type_name, caller_id)
+                target, _method = _resolve_type_name(module_id, local_type_name, caller_id)
                 method = RM.LOCAL_CONSTRUCTOR.value if first_hop else RM.LOCAL_ALIAS.value
                 return (target, method) if target else (None, None)
 
@@ -1171,7 +1432,7 @@ def build_repository_graph(legacy: _LegacyRepo) -> RepositoryModel:
         type_name = type_ref.qualified_name or type_ref.name
         if not type_name:
             return None
-        return _resolve_type_name(module_id, type_name, caller_id)
+        return _resolve_type_name(module_id, type_name, caller_id)[0]
 
     def _chain_label(root: tuple, steps: tuple) -> str:
         """Human-readable rendering of a (root, steps) chain for
@@ -1278,9 +1539,30 @@ def build_repository_graph(legacy: _LegacyRepo) -> RepositoryModel:
     # already follows the sorted file order above, but sort explicitly by id
     # so equal *content* always yields byte-identical serialized output
     # regardless of any incidental ordering differences upstream.
-    entities_sorted = sorted(entity_registry.values(), key=lambda e: e.id)
-    relationships_sorted = sorted(
-        relationship_registry.values(), key=lambda r: (r.source_id, r.target_id, r.kind.value)
+    entities_sorted = sorted(
+        entity_registry.values(),
+        key=lambda e: e.id,
     )
 
-    return RepositoryModel(name=legacy.name, entities=entities_sorted, relationships=relationships_sorted, metadata=metadata)
+    relationships_sorted = sorted(
+        relationship_registry.values(),
+        key=lambda r: (
+            r.source_id,
+            r.target_id,
+            r.kind.value,
+        ),
+    )
+
+    entities_sorted, relationships_sorted, metadata = _namespace_repository_graph(
+        repository_name=legacy.name,
+        entities=entities_sorted,
+        relationships=relationships_sorted,
+        metadata=metadata,
+    )
+
+    return RepositoryModel(
+        name=legacy.name,
+        entities=entities_sorted,
+        relationships=relationships_sorted,
+        metadata=metadata,
+    )

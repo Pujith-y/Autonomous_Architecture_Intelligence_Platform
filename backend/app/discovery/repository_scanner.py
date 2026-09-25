@@ -12,6 +12,7 @@ from app.discovery.file_detector import is_binary_file
 from app.discovery.language_detector import LanguageDetector
 from app.discovery.file_classifier import FileClassifier, FileCategory
 from app.discovery.scan_limits import ScanLimits
+from app.discovery.classification.loader import ClassificationDefinitions
 
 
 class RepositoryScanner:
@@ -24,10 +25,13 @@ class RepositoryScanner:
         file_classifier: FileClassifier | None = None,
         limits: ScanLimits | None = None,
     ):
+        base_path = Path(__file__).parent
         self.ignore_rules = ignore_rules
         self.follow_symlinks = follow_symlinks
         self.language_detector = language_detector or LanguageDetector()
-        self.file_classifier = file_classifier or FileClassifier()
+        self.file_classifier = file_classifier or FileClassifier(
+            ClassificationDefinitions(base_path / "classification" / "definitions.json")
+        )
         self.limits = limits or ScanLimits()
 
     def handle_walk_error(self, error):

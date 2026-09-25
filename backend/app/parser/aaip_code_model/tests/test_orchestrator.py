@@ -238,3 +238,163 @@ def test_graph_is_deterministic_regardless_of_file_order():
     assert [
         (r.source_id, r.target_id, r.kind.value) for r in forward.relationships
     ] == [(r.source_id, r.target_id, r.kind.value) for r in reversed_input.relationships]
+
+
+# ---------------------------------------------------------------------
+# Signature type relationships
+# ---------------------------------------------------------------------
+
+def test_return_type_relationships(graph):
+    """Declared return types must become RETURNS relationships.
+
+    This verifies both simple types and nested TypeReferences such as
+    List[User], Dict[str, User], Optional[User], and Union[User, Admin].
+    """
+
+    assert relationship_exists(
+        graph,
+        "python:python.test.get_user()",
+        "python:python.test.User",
+        RelationshipKind.RETURNS,
+    )
+
+    assert relationship_exists(
+        graph,
+        "python:python.test.get_users()",
+        "python:python.test.User",
+        RelationshipKind.RETURNS,
+    )
+
+    assert relationship_exists(
+        graph,
+        "python:python.test.get_user_map()",
+        "python:python.test.User",
+        RelationshipKind.RETURNS,
+    )
+
+    assert relationship_exists(
+        graph,
+        "python:python.test.find_user()",
+        "python:python.test.User",
+        RelationshipKind.RETURNS,
+    )
+
+    assert relationship_exists(
+        graph,
+        "python:python.test.get_account()",
+        "python:python.test.User",
+        RelationshipKind.RETURNS,
+    )
+
+    assert relationship_exists(
+        graph,
+        "python:python.test.get_account()",
+        "python:python.test.Admin",
+        RelationshipKind.RETURNS,
+    )
+
+def test_native_return_type_does_not_create_relationship(graph):
+    assert not any(
+        r.source_id == "python:python.test.get_count()"
+        and r.kind == RelationshipKind.RETURNS
+        for r in graph.relationships
+    )
+
+def test_generic_wrappers_are_not_created_as_return_targets(graph):
+    get_users_targets = {
+        r.target_id
+        for r in graph.relationships
+        if r.source_id == "python:python.test.get_users()"
+        and r.kind == RelationshipKind.RETURNS
+    }
+
+    assert get_users_targets == {
+        "python:python.test.User"
+    }
+
+    get_map_targets = {
+        r.target_id
+        for r in graph.relationships
+        if r.source_id == "python:python.test.get_user_map()"
+        and r.kind == RelationshipKind.RETURNS
+    }
+
+    assert get_map_targets == {
+        "python:python.test.User"
+    }
+
+def test_union_return_type_resolves_all_repository_types(graph):
+    targets = {
+        r.target_id
+        for r in graph.relationships
+        if r.source_id == "python:python.test.get_account()"
+        and r.kind == RelationshipKind.RETURNS
+    }
+
+    assert targets == {
+        "python:python.test.User",
+        "python:python.test.Admin",
+    }
+
+def test_return_type_relationship_has_resolution_metadata(graph):
+    metadata = relationship_metadata(
+        graph,
+        "python:python.test.get_user()",
+        "python:python.test.User",
+        RelationshipKind.RETURNS,
+    )
+
+    assert metadata["resolution_method"] == "same_module"
+    assert metadata["language"] == "python"
+
+def test_parameter_type_relationships(graph):
+    assert relationship_exists(
+        graph,
+        "python:python.test.process_user(User)",
+        "python:python.test.User",
+        RelationshipKind.ACCEPTS,
+    )
+
+    assert relationship_exists(
+        graph,
+        "python:python.test.process_users(List<User>)",
+        "python:python.test.User",
+        RelationshipKind.ACCEPTS,
+    )
+
+    assert relationship_exists(
+        graph,
+        "python:python.test.process_account(User|Admin)",
+        "python:python.test.User",
+        RelationshipKind.ACCEPTS,
+    )
+
+    assert relationship_exists(
+        graph,
+        "python:python.test.process_account(User|Admin)",
+        "python:python.test.Admin",
+        RelationshipKind.ACCEPTS,
+    )
+
+def test_native_parameter_types_do_not_create_accepts_relationships(graph):
+    for relationship in graph.relationships:
+        if relationship.kind != RelationshipKind.ACCEPTS:
+            continue
+
+        assert relationship.target_id != "python:python.test.int"
+
+def test_signature_relationships_are_deduplicated(graph):
+    relationships = [
+        (
+            r.source_id,
+            r.target_id,
+            r.kind,
+        )
+        for r in graph.relationships
+        if r.kind in (
+            RelationshipKind.RETURNS,
+            RelationshipKind.ACCEPTS,
+        )
+    ]
+
+    assert len(relationships) == len(set(relationships))

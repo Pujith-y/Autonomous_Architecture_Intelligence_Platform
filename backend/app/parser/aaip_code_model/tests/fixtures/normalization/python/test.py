@@ -29,3 +29,14 @@ def find_user() -> Optional[User]:
 
 def get_account() -> Union[User, Admin]:
     pass
+
+def process_user(user: User) -> int:
+    pass
+
+
+def process_users(users: List[User]) -> int:
+    pass
+
+
+def process_account(account: Union[User, Admin]) -> int:
+    pass
