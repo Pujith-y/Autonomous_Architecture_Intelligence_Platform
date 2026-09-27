@@ -1,63 +1,24 @@
-"""
-Shared helpers used by every per-language extractor. Nothing in this module
-introduces new model types -- it only builds instances of the dataclasses
-already defined in `repository_model` (Entity, Relationship, Parameter,
-TypeReference, SourceLocation). Internal transport between functions uses
-plain dicts, never new classes.
-"""
-
 from __future__ import annotations
 
 import re
 from pathlib import Path
 from typing import Any
 
-from app.repository_model import TypeReference, SourceLocation  # noqa: F401 -- your existing module
+from app.repository_model import TypeReference, SourceLocation
 
-
-# ---------------------------------------------------------------------
-# Canonical identity
-#
-# id            = "<language>:<qualified_name>"   e.g. "java:com.example.auth.User"
-# qualified_name = fully resolved namespace path    e.g. "com.example.auth.User"
-# name          = simple human-readable name         e.g. "User"
-#
-# This is what lets "User", "com.example.auth.User" and "another.package.User"
-# stay distinct entities even though a human would call all three "User".
-#
-# INVARIANT: a canonical id is derived *only* from the repository-relative
-# path (plus language syntax). No absolute path, drive letter, CWD, temp dir
-# or host-specific segment may ever appear in it -- see normalize_relative_path
-# and the `relative_path` argument threaded through every extractor.
-# ---------------------------------------------------------------------
 
 def make_id(language: str, qualified_name: str) -> str:
     return f"{language}:{qualified_name}"
 
 
 def join_qualified(owner: str | None, name: str) -> str:
-    """`owner.name`, but tolerant of an empty owner scope (Java's default
-    package, a JS file at the repo root) -- never produces a leading dot."""
     if not owner:
         return name
     return f"{owner}.{name}"
 
 
 def module_qualified_name(language: str, relative_path: Path) -> str:
-    """The qualified name of the *file itself* as a module/namespace unit.
 
-    Python:      python/user.py       -> "python.user"   (dotted, repo-relative)
-                 pkg/__init__.py      -> "pkg"           (the package itself)
-    Java:        resolved from the file's `package` declaration (see
-                 extractor_java.py); this fallback -- the repo-relative
-                 *directory* dotted, NOT including the file stem -- is only
-                 used when a file has no package statement, so that
-                 `test/User.java` still yields the type `test.User`.
-    JS/TS:       js/user.ts           -> "js/user"       (module = file path;
-                 JS/TS has no separate namespace concept, the file *is* one)
-
-    Everything here is a function of the *repository-relative* path only.
-    """
     relative_path = normalize_relative_path(relative_path)
     if language == "python":
         parts = list(relative_path.with_suffix("").parts)
@@ -67,7 +28,6 @@ def module_qualified_name(language: str, relative_path: Path) -> str:
     if language == "java":
         parts = [p for p in relative_path.parent.parts if p not in ("", ".")]
         return ".".join(parts) if parts else ""
-    # javascript / typescript and anything else: the file path *is* the module.
     return relative_path.with_suffix("").as_posix()
 
 
@@ -75,17 +35,6 @@ def is_python_package_init(relative_path: Path) -> bool:
     return normalize_relative_path(relative_path).stem == "__init__"
 
 
-# ---------------------------------------------------------------------
-# Type reference parsing (best-effort, text-based)
-#
-# Every extractor hands this the *raw source text* of a type expression
-# (e.g. "Optional[str]", "typing.Optional[str]", "List<String>",
-# "string | null", "int[]", or a PEP 563 string annotation
-# '"Optional[str]"'). Real generics/union resolution needs a
-# language-specific parser; this is a shared approximation that covers the
-# common shapes across all three languages without each extractor
-# reimplementing it.
-# ---------------------------------------------------------------------
 
 _OPTIONAL_MARKERS = {"None", "null", "undefined", "NoneType"}
 _COLLECTION_NAMES = {
@@ -94,10 +43,6 @@ _COLLECTION_NAMES = {
     "Iterable", "Mapping", "HashMap", "HashSet",
 }
 
-# `typing.Optional[str]` must normalize exactly like `Optional[str]`. Only
-# these known aliases of the typing module are stripped -- an unrelated
-# `mypkg.Optional[str]` keeps its qualification rather than being silently
-# conflated with typing's.
 _TYPING_MODULES = ("typing_extensions", "typing", "t", "tp")
 _TYPING_PREFIX_RE = re.compile(r"^(?:%s)\." % "|".join(_TYPING_MODULES))
 
@@ -129,7 +74,6 @@ def parse_type_reference(text: str | None) -> TypeReference | None:
     if not text:
         return None
     text = text.strip()
-    # PEP 563 / forward-reference string annotations: `-> "Optional[str]"`.
     if len(text) >= 2 and text[0] == text[-1] and text[0] in "\"'":
         text = text[1:-1].strip()
     if not text:
@@ -137,7 +81,7 @@ def parse_type_reference(text: str | None) -> TypeReference | None:
 
     text = _strip_typing_prefix(text)
 
-    # T | U | null   (TS unions, Python 3.10+ unions)
+    # T | U | null 
     if "|" in text and not text.startswith("|"):
         alts = _split_top_level(text, "|")
         if len(alts) > 1:
@@ -159,7 +103,7 @@ def parse_type_reference(text: str | None) -> TypeReference | None:
                 is_optional=is_optional,
             )
 
-    # Optional[T]  /  typing.Optional[T]  (the typing. prefix is already stripped)
+    # Optional[T]  /  typing.Optional[T]
     m = re.fullmatch(r"Optional\s*\[(.+)\]", text, re.S)
     if m:
         inner = parse_type_reference(m.group(1))
@@ -200,7 +144,7 @@ def parse_type_reference(text: str | None) -> TypeReference | None:
         if inner is not None:
             return TypeReference(name="Array", generic_arguments=(inner,), is_collection=True)
 
-    # Name<Args>  (Java / TS generics)   or   Name[Args]  (Python typing generics)
+    # Name<Args>  or   Name[Args]  
     m = re.fullmatch(r"([\w.$]+)\s*[<\[](.+)[>\]]", text, re.S)
     if m:
         base, inner_text = _strip_typing_prefix(m.group(1)), m.group(2)
@@ -235,17 +179,6 @@ def text_of(node: Any, source: bytes) -> str:
     return source[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
 
 
-# ---------------------------------------------------------------------
-# Canonical method/constructor signatures
-#
-# "Calculator.add(int a, int b)" and "Calculator.add(double a, double b)"
-# must not collide. Parameter *names* never participate (add(int a,int b)
-# and add(int x,int y) are the same signature); parameter *types* do.
-# Untyped parameters (Python with no annotation, plain JS) render as "?" --
-# still deterministic, just acknowledging the type is unknown rather than
-# guessing one.
-# ---------------------------------------------------------------------
-
 def _render_type_name(t: TypeReference | None) -> str:
     if t is None:
         return "?"
@@ -259,27 +192,13 @@ def _render_type_name(t: TypeReference | None) -> str:
 
 
 def signature_suffix(parameters: list[Any]) -> str:
-    """`(int,int)` from a list of Parameter -- used to disambiguate overloads."""
     rendered = []
     for p in parameters:
         name = _render_type_name(p.type)
         rendered.append(f"...{name}" if p.is_variadic else name)
     return "(" + ",".join(rendered) + ")"
 
-
-# ---------------------------------------------------------------------
-# Reference text handling
-#
-# A reference as written in source ("foo.bar.Base<T>") must be usable both
-# as a precise dotted lookup ("foo.bar.Base") and reduced to a simple name
-# ("Base") for fallback matching -- without the dotted form ever being
-# destructively collapsed to its first segment (that was the prior bug:
-# "foo.bar.Base" -> "foo" loses the very information that would have let
-# it resolve correctly).
-# ---------------------------------------------------------------------
-
 def normalize_reference(original: str) -> str:
-    """Strip generic/array noise, keep the full dotted path: 'foo.bar.Base<T>' -> 'foo.bar.Base'."""
     text = original.strip()
     for cut in ("<", "["):
         idx = text.find(cut)
@@ -293,9 +212,6 @@ def simple_name_of(normalized: str) -> str:
 
 
 def normalize_relative_path(path: Path) -> Path:
-    """Repo-relative, posix-separated, no leading './'. Defensive: canonical
-    identity must never depend on how the path was spelled or which OS/
-    checkout produced it."""
     posix = Path(path).as_posix()
     while posix.startswith("./"):
         posix = posix[2:]
