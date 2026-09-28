@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     QDRANT_HOST: str
     QDRANT_PORT: int
 
+    SECRET_KEY: str
+    ALGORITHM: str
+    ACCESS_TOKEN_EXPIRE_MINUTES: int
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=True

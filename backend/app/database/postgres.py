@@ -28,3 +28,12 @@ def check_postgres_connection():
     except Exception as e:
         print(f"PostgreSQL connection failed: {e}")
         return False
+
+
+def get_db():
+    db = SessionLocal()
+
+    try:
+        yield db
+    finally:
+        db.close()

@@ -90,7 +90,7 @@ class RepositoryScanner:
 
                 path = current_path / name
 
-                if self.ignore_rules.should_ignore(path):
+                if self.ignore_rules and self.ignore_rules.should_ignore(path):
                     continue
 
                 if not self.follow_symlinks and path.is_symlink():

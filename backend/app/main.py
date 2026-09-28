@@ -3,9 +3,12 @@ from app.config.settings import settings
 from app.core.logger import logger
 from contextlib import asynccontextmanager
 
-from app.database.postgres import check_postgres_connection
+from app.database.postgres import check_postgres_connection, get_db
 from app.database.neo4j import check_neo4j_connection
 from app.database.qdrant import check_qdrant_connection
+from app.routes.auth import router as auth_router
+from app.routes.repositories import router as repo_router
+from app.database.init_db import init_db
 
 logger.info("AAIP Started")
 
@@ -39,6 +42,11 @@ app = FastAPI(
     version=settings.APP_VERSION
 )
 
+init_db()
+
+app.include_router(auth_router)
+app.include_router(repo_router)
+
 @app.get("/")
 def root():
     return {
@@ -65,3 +73,4 @@ def health():
             "qdrant": "healthy" if qdrant_ok else "unhealthy",
         },
     }
+
