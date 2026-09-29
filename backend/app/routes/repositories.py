@@ -20,32 +20,32 @@ from app.models.repository_model import Repository
 from app.models.user_model import User
 from app.models.indexing_run_model import IndexingRun
 
+from app.services.repository.repository_service import (
+    RepositoryService,
+)
+
+repository_service = RepositoryService()
+
 router = APIRouter(
     tags=["Repositories"],
 )
 
-@router.post("/repositories")
+@router.post(
+    "/repositories",
+    response_model=RepositoryResponse,
+)
 def new_repo(
-    body : NewRepository,
-    current_user : User = Depends(get_current_user),
-    db : Session = Depends(get_db),
+    body: NewRepository,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    new_repository = Repository(
-        name = body.name,
-        path = body.path,
-        user_id = current_user.id 
+    return repository_service.create(
+        body,
+        current_user,
+        db,
     )
 
-    db.add(new_repository)
-    db.commit()
-    db.refresh(new_repository)
 
-    return {
-        "id" : new_repository.id,
-        "name" : new_repository.name,
-        "path" : new_repository.path,
-        "user_id" : new_repository.user_id,
-    }
 
 
 @router.post("/repositories/{repository_id}/index")
@@ -82,15 +82,27 @@ def index_repository(
         "status": run.status,
     }
 
-@router.get("/repositories", response_model=ListOfRepositoryResponse)
+
+
+
+@router.get(
+    "/repositories",
+    response_model=ListOfRepositoryResponse,
+)
 def get_all_repos(
-    current_user : User = Depends(get_current_user),
-    db : Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    repos = db.query(Repository).filter(Repository.user_id == current_user.id).all()
+    repositories = repository_service.get_all(
+        current_user,
+        db,
+    )
+
     return {
-        "repositories": repos
+        "repositories": repositories
     }
+
+
 
 @router.get("/repositories/{id}", response_model=RepositoryResponse)
 def get_repo_by_id(
@@ -98,18 +110,13 @@ def get_repo_by_id(
     current_user : User = Depends(get_current_user),
     db : Session = Depends(get_db),
 ):
-    repo = db.query(Repository).filter(
-        Repository.id == id,
-        Repository.user_id == current_user.id
-    ).first()
+    return repository_service.get_by_id(
+        id,
+        current_user,
+        db,
+    )
 
-    if not repo:
-        raise HTTPException(
-            status_code=404,
-            detail="Repository not found",
-        )
-    
-    return repo
+
 
 @router.get("/repositories/{id}/indexing-runs", response_model=ListOfIndexingRunResponse)
 def get_indexing_runs_of_repo(
@@ -135,24 +142,20 @@ def get_indexing_runs_of_repo(
         "indexing_runs": indexing_runs
     }
 
+
+
 @router.delete("/repositories/{id}")
 def delete_repo(
     id: int,
-    current_user : User = Depends(get_current_user),
-    db : Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    repo = db.query(Repository).filter(
-        Repository.id == id,
-        Repository.user_id == current_user.id
-    ).first()
+    repository_service.delete(
+        id,
+        current_user,
+        db,
+    )
 
-    if not repo:
-        raise HTTPException(
-            status_code=404,
-            detail="Repository not found",
-        )
-
-    db.delete(repo)
-    db.commit()
-
-    return {"message": "Repository deleted successfully."}
+    return {
+        "message": "Repository deleted successfully."
+    }
