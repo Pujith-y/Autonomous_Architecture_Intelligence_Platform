@@ -210,96 +210,6 @@ def _location_line(entity: Entity | None) -> int | None:
     loc = getattr(entity, "location", None)
     return getattr(loc, "start_line", None) if loc is not None else None
 
-def _namespace_repository_graph(
-    repository_name: str,
-    entities: list[Entity],
-    relationships: list[Relationship],
-    metadata: dict[str, Any],
-) -> tuple[list[Entity], list[Relationship], dict[str, Any]]:
-    """
-    Make entity IDs globally unique across repositories.
-
-    Internal orchestration uses repository-local IDs so that all resolution
-    logic remains simple. Only the final RepositoryModel is namespaced.
-
-    Example:
-
-        python:test.User
-            ->
-        normalization::python:test.User
-
-    The repository entity itself is already globally identified as:
-
-        repository::normalization
-
-    so it is left unchanged.
-    """
-
-    repository_id = f"repository::{repository_name}"
-
-    # old_id -> globally unique new_id
-    id_map: dict[str, str] = {}
-
-    for entity in entities:
-        if entity.id == repository_id:
-            id_map[entity.id] = entity.id
-        else:
-            id_map[entity.id] = f"{repository_name}::{entity.id}"
-
-    # Update entity IDs.
-    for entity in entities:
-        entity.id = id_map[entity.id]
-
-    # Update every relationship endpoint.
-    for relationship in relationships:
-        relationship.source_id = id_map.get(
-            relationship.source_id,
-            relationship.source_id,
-        )
-        relationship.target_id = id_map.get(
-            relationship.target_id,
-            relationship.target_id,
-        )
-
-    # Some orchestrator metadata contains entity IDs too.
-    # Keep that metadata consistent with the final graph.
-    if "external_entity_ids" in metadata:
-        metadata["external_entity_ids"] = [
-            id_map.get(entity_id, entity_id)
-            for entity_id in metadata["external_entity_ids"]
-        ]
-
-    if "unresolved_references" in metadata:
-        for reference in metadata["unresolved_references"]:
-            if "referrer_id" in reference:
-                reference["referrer_id"] = id_map.get(
-                    reference["referrer_id"],
-                    reference["referrer_id"],
-                )
-
-            if "candidates" in reference:
-                reference["candidates"] = [
-                    id_map.get(candidate, candidate)
-                    for candidate in reference["candidates"]
-                ]
-
-    if "identity_collisions" in metadata:
-        for collision in metadata["identity_collisions"]:
-            if "id" in collision:
-                collision["id"] = id_map.get(
-                    collision["id"],
-                    collision["id"],
-                )
-
-            for side in ("kept", "dropped"):
-                entity_info = collision.get(side)
-                if entity_info and "id" in entity_info:
-                    entity_info["id"] = id_map.get(
-                        entity_info["id"],
-                        entity_info["id"],
-                    )
-
-    return entities, relationships, metadata
 
 def build_repository_graph(legacy: _LegacyRepo) -> RepositoryModel:
     entity_registry = _EntityRegistry()
@@ -1551,13 +1461,6 @@ def build_repository_graph(legacy: _LegacyRepo) -> RepositoryModel:
             r.target_id,
             r.kind.value,
         ),
-    )
-
-    entities_sorted, relationships_sorted, metadata = _namespace_repository_graph(
-        repository_name=legacy.name,
-        entities=entities_sorted,
-        relationships=relationships_sorted,
-        metadata=metadata,
     )
 
     return RepositoryModel(

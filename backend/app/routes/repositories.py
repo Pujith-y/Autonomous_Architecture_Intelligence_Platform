@@ -54,20 +54,11 @@ def index_repository(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    repository = (
-        db.query(Repository)
-        .filter(
-            Repository.id == repository_id,
-            Repository.user_id == current_user.id,
-        )
-        .first()
+    repository = repository_service.get_by_id(
+        repository_id,
+        current_user,
+        db,
     )
-
-    if not repository:
-        raise HTTPException(
-            status_code=404,
-            detail="Repository not found",
-        )
 
     indexer = RepositoryIndexer()
 
@@ -124,16 +115,11 @@ def get_indexing_runs_of_repo(
     current_user : User = Depends(get_current_user),
     db : Session = Depends(get_db),
 ):
-    repo = db.query(Repository).filter(
-        Repository.id == id,
-        Repository.user_id == current_user.id
-    ).first()
-
-    if not repo:
-        raise HTTPException(
-            status_code=404,
-            detail="Repository not found",
-        )
+    repo = repository_service.get_by_id(
+        id,
+        current_user,
+        db,
+    )
 
     indexing_runs = db.query(IndexingRun).filter(
         IndexingRun.repository_id == repo.id

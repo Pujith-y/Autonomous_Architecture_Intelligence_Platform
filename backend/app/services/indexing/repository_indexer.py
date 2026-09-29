@@ -120,5 +120,7 @@ class RepositoryIndexer:
         )
 
         self.neo4j_repository.save(
-            model
+            model,
+            user_id=repository.us er_id,
+            repository_id=repository.id,
         )

@@ -11,8 +11,9 @@ class RepositoryResponse(BaseModel):
     name : str
     path : str
     status : str
-    last_indexed_at : datetime
-    updated_at : datetime
+    last_indexed_at : datetime | None
+    updated_at : datetime | None
+    created_at : datetime
     last_indexing_error : str | None
 
 class ListOfRepositoryResponse(BaseModel):

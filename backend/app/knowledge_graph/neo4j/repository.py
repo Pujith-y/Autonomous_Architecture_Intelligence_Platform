@@ -5,14 +5,41 @@ from dataclasses import asdict
 
 class Neo4jRepository:
 
-    def save(self, model: RepositoryModel) -> None:
-        self._save_entities(model)
-        self._save_relationships(model)
+    def _namespace(
+        self,
+        user_id: int,
+        repository_id: int,
+        entity_id: str,
+    ) -> str:
+        return f"user:{user_id}::repo:{repository_id}::{entity_id}"
 
-    def _save_entities(self, model: RepositoryModel) -> None:
+    def save(
+        self,
+        model: RepositoryModel,
+        user_id: int,
+        repository_id: int,
+    ) -> None:
+
+        namespace = f"user:{user_id}::repo:{repository_id}"
+
+        self._save_entities(
+            model,
+            namespace,
+        )
+
+        self._save_relationships(
+            model,
+            namespace,
+        )
+
+    def _save_entities(self, model: RepositoryModel, namespace: str) -> None:
         entities = [
             {
-                "id": entity.id,
+                "id": (
+                    namespace
+                    if entity.kind.value == "repository"
+                    else f"{namespace}::{entity.id}"
+                ),
                 "name": entity.name,
                 "qualified_name": entity.qualified_name,
                 "language": entity.language,
@@ -79,11 +106,20 @@ class Neo4jRepository:
             entities=entities,
         )
 
-    def _save_relationships(self, model: RepositoryModel) -> None:
+    def _save_relationships(self, model: RepositoryModel, namespace: str) -> None:
         relationships = [
             {
-                "source_id": relationship.source_id,
-                "target_id": relationship.target_id,
+                "source_id": (
+                    namespace
+                    if relationship.source_id.startswith("repository::")
+                    else f"{namespace}::{relationship.source_id}"
+                ),
+
+                "target_id": (
+                    namespace
+                    if relationship.target_id.startswith("repository::")
+                    else f"{namespace}::{relationship.target_id}"
+                ),
                 "kind": relationship.kind.value,
                 "metadata": relationship.metadata,
             }
