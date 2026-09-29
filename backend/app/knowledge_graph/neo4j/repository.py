@@ -11,7 +11,13 @@ class Neo4jRepository:
         repository_id: int,
         entity_id: str,
     ) -> str:
-        return f"user:{user_id}::repo:{repository_id}::{entity_id}"
+
+        namespace = f"user:{user_id}::repo:{repository_id}"
+
+        if entity_id.startswith("repository::"):
+            return namespace
+
+        return f"{namespace}::{entity_id}"
 
     def save(
         self,
@@ -20,25 +26,27 @@ class Neo4jRepository:
         repository_id: int,
     ) -> None:
 
-        namespace = f"user:{user_id}::repo:{repository_id}"
+        
 
         self._save_entities(
             model,
-            namespace,
+            user_id,
+            repository_id,
         )
 
         self._save_relationships(
             model,
-            namespace,
+            user_id,
+            repository_id,
         )
 
-    def _save_entities(self, model: RepositoryModel, namespace: str) -> None:
+    def _save_entities(self, model: RepositoryModel, user_id: int, repository_id: int) -> None:
         entities = [
             {
-                "id": (
-                    namespace
-                    if entity.kind.value == "repository"
-                    else f"{namespace}::{entity.id}"
+                "id": self._namespace(
+                    user_id=user_id,
+                    repository_id=repository_id,
+                    entity_id=entity.id,
                 ),
                 "name": entity.name,
                 "qualified_name": entity.qualified_name,
@@ -106,20 +114,21 @@ class Neo4jRepository:
             entities=entities,
         )
 
-    def _save_relationships(self, model: RepositoryModel, namespace: str) -> None:
+    def _save_relationships(self, model: RepositoryModel, user_id: int, repository_id: int) -> None:
         relationships = [
             {
-                "source_id": (
-                    namespace
-                    if relationship.source_id.startswith("repository::")
-                    else f"{namespace}::{relationship.source_id}"
+                "source_id": self._namespace(
+                    user_id=user_id,
+                    repository_id=repository_id,
+                    entity_id=relationship.source_id
                 ),
 
-                "target_id": (
-                    namespace
-                    if relationship.target_id.startswith("repository::")
-                    else f"{namespace}::{relationship.target_id}"
+                "target_id": self._namespace(
+                    user_id=user_id,
+                    repository_id=repository_id,
+                    entity_id=relationship.target_id
                 ),
+
                 "kind": relationship.kind.value,
                 "metadata": relationship.metadata,
             }
@@ -156,4 +165,34 @@ class Neo4jRepository:
         tx.run(
             query,
             relationships=relationships,
+        )
+
+    def delete_repository(
+        self,
+        user_id: int,
+        repository_id: int,
+    ) -> None:
+
+        namespace = f"user:{user_id}::repo:{repository_id}"
+
+        with driver.session() as session:
+            session.execute_write(
+                self._delete_repository,
+                namespace,
+            )
+
+    @staticmethod
+    def _delete_repository(tx, namespace: str):
+
+        query = """
+        MATCH (n:Entity)
+        WHERE n.id = $namespace
+        OR n.id STARTS WITH $prefix
+        DETACH DELETE n
+        """
+
+        tx.run(
+            query,
+            namespace=namespace,
+            prefix=f"{namespace}::",
         )

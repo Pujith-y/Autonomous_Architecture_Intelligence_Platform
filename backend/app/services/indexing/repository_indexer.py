@@ -119,8 +119,13 @@ class RepositoryIndexer:
             discovered_repo
         )
 
+        self.neo4j_repository.delete_repository(
+            user_id=repository.user_id,
+            repository_id=repository.id,
+        )
+
         self.neo4j_repository.save(
             model,
-            user_id=repository.us er_id,
+            user_id=repository.user_id,
             repository_id=repository.id,
         )

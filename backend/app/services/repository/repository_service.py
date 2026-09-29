@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.models.repository_model import Repository
 from app.models.user_model import User
 from app.schemas.repositories_schemas import NewRepository
+from app.knowledge_graph.neo4j.repository import Neo4jRepository
 
 
 class RepositoryService:
@@ -76,6 +77,12 @@ class RepositoryService:
             repository_id,
             current_user,
             db,
+        )
+
+        neo4j_service = Neo4jRepository()
+        neo4j_service.delete_repository(
+            user_id=current_user.id,
+            repository_id=repository_id
         )
 
         db.delete(repository)
