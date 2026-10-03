@@ -6,7 +6,6 @@ from dataclasses import asdict
 class Neo4jRepository:
 
     def _namespace(
-        self,
         user_id: int,
         repository_id: int,
         entity_id: str,
@@ -19,74 +18,11 @@ class Neo4jRepository:
 
         return f"{namespace}::{entity_id}"
 
-    def save(
-        self,
-        model: RepositoryModel,
-        user_id: int,
-        repository_id: int,
-    ) -> None:
-
-        
-
-        self._save_entities(
-            model,
-            user_id,
-            repository_id,
-        )
-
-        self._save_relationships(
-            model,
-            user_id,
-            repository_id,
-        )
-
-    def _save_entities(self, model: RepositoryModel, user_id: int, repository_id: int) -> None:
-        entities = [
-            {
-                "id": self._namespace(
-                    user_id=user_id,
-                    repository_id=repository_id,
-                    entity_id=entity.id,
-                ),
-                "name": entity.name,
-                "qualified_name": entity.qualified_name,
-                "language": entity.language,
-                "kind": entity.kind.value,
-
-                "file": str(entity.location.file) if entity.location else None,
-                "start_line": entity.location.start_line if entity.location else None,
-                "end_line": entity.location.end_line if entity.location else None,
-                "start_column": entity.location.start_column if entity.location else None,
-                "end_column": entity.location.end_column if entity.location else None,
-
-                "parameters": json.dumps(
-                    [asdict(parameter) for parameter in entity.parameters]
-                ),
-
-                "return_type": json.dumps(
-                    asdict(entity.return_type)
-                ) if entity.return_type else None,
-
-                "generic_parameters": json.dumps(
-                    [asdict(parameter) for parameter in entity.generic_parameters]
-                ),
-
-                "metadata": json.dumps(entity.metadata),
-            }
-            for entity in model.entities
-        ]
-
-        if not entities:
-            return
-
-        with driver.session() as session:
-            session.execute_write(
-                self._create_entities,
-                entities,
-            )
-
     @staticmethod
-    def _create_entities(tx, entities):
+    def _create_entities(
+        tx,
+        entities,
+    ):
         query = """
         UNWIND $entities AS entity
 
@@ -114,38 +50,11 @@ class Neo4jRepository:
             entities=entities,
         )
 
-    def _save_relationships(self, model: RepositoryModel, user_id: int, repository_id: int) -> None:
-        relationships = [
-            {
-                "source_id": self._namespace(
-                    user_id=user_id,
-                    repository_id=repository_id,
-                    entity_id=relationship.source_id
-                ),
-
-                "target_id": self._namespace(
-                    user_id=user_id,
-                    repository_id=repository_id,
-                    entity_id=relationship.target_id
-                ),
-
-                "kind": relationship.kind.value,
-                "metadata": relationship.metadata,
-            }
-            for relationship in model.relationships
-        ]
-
-        if not relationships:
-            return
-
-        with driver.session() as session:
-            session.execute_write(
-                self._create_relationships,
-                relationships,
-            )
-
     @staticmethod
-    def _create_relationships(tx, relationships):
+    def _create_relationships(
+        tx,
+        relationships,
+    ):
         query = """
         UNWIND $relationships AS relationship
 
@@ -167,20 +76,6 @@ class Neo4jRepository:
             relationships=relationships,
         )
 
-    def delete_repository(
-        self,
-        user_id: int,
-        repository_id: int,
-    ) -> None:
-
-        namespace = f"user:{user_id}::repo:{repository_id}"
-
-        with driver.session() as session:
-            session.execute_write(
-                self._delete_repository,
-                namespace,
-            )
-
     @staticmethod
     def _delete_repository(tx, namespace: str):
 
@@ -196,3 +91,120 @@ class Neo4jRepository:
             namespace=namespace,
             prefix=f"{namespace}::",
         )
+
+    def replace_repository_graph(
+        self,
+        model: RepositoryModel,
+        user_id: int,
+        repository_id: int,
+    ) -> None:
+
+        with driver.session() as session:
+            session.execute_write(
+                self._replace_repository_graph,
+                model,
+                user_id,
+                repository_id,
+            )
+
+    @staticmethod
+    def _replace_repository_graph(
+        tx,
+        model: RepositoryModel,
+        user_id: int,
+        repository_id: int,
+    ) -> None:
+
+        namespace = f"user:{user_id}::repo:{repository_id}"
+     
+        Neo4jRepository._delete_repository(
+            tx,
+            namespace,
+        )
+
+        entities = [
+            {
+                "id": Neo4jRepository._namespace(
+                    user_id=user_id,
+                    repository_id=repository_id,
+                    entity_id=entity.id,
+                ),
+                "name": entity.name,
+                "qualified_name": entity.qualified_name,
+                "language": entity.language,
+                "kind": entity.kind.value,
+
+                "file": (
+                    str(entity.location.file)
+                    if entity.location
+                    else None
+                ),
+                "start_line": (
+                    entity.location.start_line
+                    if entity.location
+                    else None
+                ),
+                "end_line": (
+                    entity.location.end_line
+                    if entity.location
+                    else None
+                ),
+                "start_column": (
+                    entity.location.start_column
+                    if entity.location
+                    else None
+                ),
+                "end_column": (
+                    entity.location.end_column
+                    if entity.location
+                    else None
+                ),
+
+                "parameters": json.dumps(
+                    [asdict(p) for p in entity.parameters]
+                ),
+
+                "return_type": (
+                    json.dumps(asdict(entity.return_type))
+                    if entity.return_type
+                    else None
+                ),
+
+                "generic_parameters": json.dumps(
+                    [asdict(p) for p in entity.generic_parameters]
+                ),
+
+                "metadata": json.dumps(entity.metadata),
+            }
+            for entity in model.entities
+        ]
+
+        relationships = [
+            {
+                "source_id": Neo4jRepository._namespace(
+                    user_id=user_id,
+                    repository_id=repository_id,
+                    entity_id=relationship.source_id
+                ),
+                "target_id": Neo4jRepository._namespace(
+                    user_id,
+                    repository_id,
+                    relationship.target_id,
+                ),
+                "kind": relationship.kind.value,
+                "metadata": relationship.metadata,
+            }
+            for relationship in model.relationships
+        ]
+
+        if entities:
+            Neo4jRepository._create_entities(
+                tx,
+                entities,
+            )
+
+        if relationships:
+            Neo4jRepository._create_relationships(
+                tx,
+                relationships,
+            )
