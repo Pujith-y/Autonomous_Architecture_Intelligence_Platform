@@ -2,21 +2,9 @@ from app.knowledge_graph.neo4j.client import driver
 from app.repository_model.model import RepositoryModel
 import json
 from dataclasses import asdict
+from app.knowledge_graph.neo4j.namespace import _namespace
 
 class Neo4jRepository:
-
-    def _namespace(
-        user_id: int,
-        repository_id: int,
-        entity_id: str,
-    ) -> str:
-
-        namespace = f"user:{user_id}::repo:{repository_id}"
-
-        if entity_id.startswith("repository::"):
-            return namespace
-
-        return f"{namespace}::{entity_id}"
 
     @staticmethod
     def _create_entities(
@@ -124,7 +112,7 @@ class Neo4jRepository:
 
         entities = [
             {
-                "id": Neo4jRepository._namespace(
+                "id": _namespace(
                     user_id=user_id,
                     repository_id=repository_id,
                     entity_id=entity.id,
@@ -181,12 +169,12 @@ class Neo4jRepository:
 
         relationships = [
             {
-                "source_id": Neo4jRepository._namespace(
+                "source_id": _namespace(
                     user_id=user_id,
                     repository_id=repository_id,
                     entity_id=relationship.source_id
                 ),
-                "target_id": Neo4jRepository._namespace(
+                "target_id": _namespace(
                     user_id,
                     repository_id,
                     relationship.target_id,
