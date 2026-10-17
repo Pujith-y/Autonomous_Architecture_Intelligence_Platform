@@ -3,6 +3,8 @@ from app.repository_model.model import RepositoryModel
 import json
 from dataclasses import asdict
 from app.knowledge_graph.neo4j.namespace import _namespace
+from app.core.logger import logger
+from collections import Counter
 
 class Neo4jRepository:
 
@@ -62,6 +64,34 @@ class Neo4jRepository:
         tx.run(
             query,
             relationships=relationships,
+        )
+
+    @staticmethod
+    def find_dangling_relationships(entities, relationships) -> list[dict]:
+        """Relationships whose source or target is not among ``entities``.
+
+        _create_relationships MATCHes both endpoints, so such relationships are
+        silently dropped by Neo4j. This makes the loss visible without changing
+        the (atomic) write path.
+        """
+        known = {e["id"] for e in entities}
+        return [
+            r for r in relationships
+            if r["source_id"] not in known or r["target_id"] not in known
+        ]
+
+    @staticmethod
+    def _log_dangling(dangling, total, namespace) -> None:
+        if not dangling:
+            return
+        by_kind = Counter(r["kind"] for r in dangling)
+        sample = [
+            (r["kind"], r["source_id"], r["target_id"]) for r in dangling[:5]
+        ]
+        logger.warning(
+            "Graph replacement for %s: %d of %d relationships reference "
+            "missing endpoints and will not be persisted. by_kind=%s sample=%s",
+            namespace, len(dangling), total, dict(by_kind), sample,
         )
 
     @staticmethod
@@ -184,6 +214,12 @@ class Neo4jRepository:
             }
             for relationship in model.relationships
         ]
+
+        Neo4jRepository._log_dangling(
+            Neo4jRepository.find_dangling_relationships(entities, relationships),
+            len(relationships),
+            namespace,
+        )
 
         if entities:
             Neo4jRepository._create_entities(
