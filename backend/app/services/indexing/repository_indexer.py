@@ -29,6 +29,14 @@ from app.knowledge_graph.neo4j.repository import (
 )
 
 
+from qdrant_client import QdrantClient
+
+from app.config.settings import settings
+from app.knowledge_graph.semantic.embedding_provider import EmbeddingProvider
+from app.knowledge_graph.semantic.indexer import SemanticIndexer
+from app.knowledge_graph.semantic.vector_store import QdrantVectorStore
+from app.knowledge_graph.semantic.indexing_service import SemanticIndexingService
+
 class RepositoryIndexer:
 
     def __init__(self):
@@ -123,4 +131,37 @@ class RepositoryIndexer:
             model,
             user_id=repository.user_id,
             repository_id=repository.id,
+        )
+
+        semantic_service = self._build_semantic_indexing_service(
+            str(discovered_repo.path),
+        )
+
+        semantic_service.index_repository(
+            repository_model=model,
+            user_id=repository.user_id,
+            repository_id=repository.id,
+        )
+
+    def _build_semantic_indexing_service(
+        self,
+        repository_root: str,
+    ) -> SemanticIndexingService:
+        qdrant_client = QdrantClient(
+            host=settings.QDRANT_HOST,
+            port=settings.QDRANT_PORT,
+        )
+
+        semantic_indexer = SemanticIndexer.for_repository(repository_root)
+
+        embedding_provider = EmbeddingProvider()
+
+        vector_store = QdrantVectorStore(
+            client=qdrant_client,
+        )
+
+        return SemanticIndexingService(
+            indexer=semantic_indexer,
+            embedding_provider=embedding_provider,
+            vector_store=vector_store,
         )
