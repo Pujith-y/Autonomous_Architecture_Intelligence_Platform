@@ -110,6 +110,20 @@ class Neo4jRepository:
             prefix=f"{namespace}::",
         )
 
+    def delete_repository(         
+        self,
+        user_id: int,
+        repository_id: int,
+    ) -> None:
+
+        namespace = f"user:{user_id}::repo:{repository_id}"
+
+        with driver.session() as session:
+            session.execute_write(
+                self._delete_repository,
+                namespace,
+            )
+
     def replace_repository_graph(
         self,
         model: RepositoryModel,

@@ -152,7 +152,7 @@ class RepositoryIndexer:
             port=settings.QDRANT_PORT,
         )
 
-        semantic_indexer = SemanticIndexer.for_repository(repository_root)
+        semantic_indexer = SemanticIndexer.for_repository(Path(repository_root))
 
         embedding_provider = EmbeddingProvider()
 

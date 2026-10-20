@@ -26,7 +26,7 @@ class RepositoryScanner:
         limits: ScanLimits | None = None,
     ):
         base_path = Path(__file__).parent
-        self.ignore_rules = ignore_rules
+        self.ignore_rules = ignore_rules 
         self.follow_symlinks = follow_symlinks
         self.language_detector = language_detector or LanguageDetector()
         self.file_classifier = file_classifier or FileClassifier(
@@ -135,7 +135,7 @@ class RepositoryScanner:
 
                 path = current_path / file_name
 
-                if self.ignore_rules.should_ignore(path):
+                if self.ignore_rules and self.ignore_rules.should_ignore(path):
                     continue
 
                 try:
