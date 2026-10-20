@@ -208,3 +208,40 @@ def test_search_rejects_invalid_limit():
         assert "limit" in str(exc)
 
     client.query_points.assert_not_called()
+
+
+
+def test_delete_repository_filters_by_user_and_repository():
+    client = Mock()
+    client.collection_exists.return_value = True
+
+    store = QdrantVectorStore(client)
+    store.delete_repository(user_id=1, repository_id=2)
+
+    client.delete.assert_called_once()
+    kwargs = client.delete.call_args.kwargs
+
+    assert kwargs["collection_name"] == "aaip_code_embeddings"
+    assert kwargs["wait"] is True
+
+    conditions = kwargs["points_selector"].filter.must
+    assert len(conditions) == 2
+
+    actual_filters = {
+        condition.key: condition.match.value
+        for condition in conditions
+    }
+    assert actual_filters == {
+        "user_id": 1,
+        "repository_id": 2,
+    }
+
+
+def test_delete_repository_does_nothing_without_collection():
+    client = Mock()
+    client.collection_exists.return_value = False
+
+    store = QdrantVectorStore(client)
+    store.delete_repository(user_id=1, repository_id=2)
+
+    client.delete.assert_not_called()

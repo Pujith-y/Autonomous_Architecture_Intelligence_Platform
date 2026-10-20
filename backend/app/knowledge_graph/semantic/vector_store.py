@@ -168,3 +168,36 @@ class QdrantVectorStore:
             )
 
         return results
+
+
+    
+    def delete_repository(
+        self,
+        user_id: int,
+        repository_id: int,
+    ) -> None:
+        """Delete all vectors belonging to one repository."""
+        if not self.client.collection_exists(self.collection_name):
+            return
+
+        repository_filter = Filter(
+            must=[
+                FieldCondition(
+                    key="user_id",
+                    match=MatchValue(value=user_id),
+                ),
+                FieldCondition(
+                    key="repository_id",
+                    match=MatchValue(value=repository_id),
+                ),
+            ]
+        )
+
+        self.client.delete(
+            collection_name=self.collection_name,
+            points_selector=models.FilterSelector(
+                filter=repository_filter,
+            ),
+            wait=True,
+        )
+
