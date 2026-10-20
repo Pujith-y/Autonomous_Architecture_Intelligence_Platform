@@ -1,5 +1,11 @@
 from qdrant_client import QdrantClient, models
 
+from qdrant_client.models import (
+    FieldCondition,
+    Filter,
+    MatchValue,
+)
+
 from uuid import NAMESPACE_URL, uuid5
 
 from app.knowledge_graph.semantic.document_builder import SemanticDocument
@@ -108,3 +114,57 @@ class QdrantVectorStore:
             wait=True,
         )
 
+    
+    def search(
+        self,
+        query_vector: list[float],
+        user_id: int,
+        repository_id: int,
+        limit: int = 5,
+    ) -> list[dict]:
+        """Search code vectors within a specific repository."""
+        if len(query_vector) != self.VECTOR_SIZE:
+            raise ValueError(
+                f"Expected {self.VECTOR_SIZE}-dimensional query vector"
+            )
+
+        if not 1 <= limit <= 100:
+            raise ValueError("limit must be between 1 and 100")
+
+        if not self.client.collection_exists(self.collection_name):
+            return []
+
+        query_filter = Filter(
+            must=[
+                FieldCondition(
+                    key="user_id",
+                    match=MatchValue(value=user_id),
+                ),
+                FieldCondition(
+                    key="repository_id",
+                    match=MatchValue(value=repository_id),
+                ),
+            ]
+        )
+
+        response = self.client.query_points(
+            collection_name=self.collection_name,
+            query=query_vector,
+            query_filter=query_filter,
+            limit=limit,
+            with_payload=True,
+        )
+
+        results = []
+
+        for point in response.points:
+            results.append(
+                {
+                    "entity_id": point.payload.get("entity_id"),
+                    "score": point.score,
+                    "text": point.payload.get("text"),
+                    "metadata": point.payload,
+                }
+            )
+
+        return results

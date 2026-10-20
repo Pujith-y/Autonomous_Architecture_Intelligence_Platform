@@ -109,3 +109,102 @@ def test_upsert_documents_rejects_wrong_vector_size():
         assert "dimensional" in str(exc)
 
     client.upsert.assert_not_called()
+
+
+def test_search_filters_by_user_and_repository():
+    from types import SimpleNamespace
+
+    client = Mock()
+    client.collection_exists.return_value = True
+    client.query_points.return_value = SimpleNamespace(
+        points=[
+            SimpleNamespace(
+                payload={
+                    "entity_id": "user:1::repo:2::python.auth.login",
+                    "text": "Function: login",
+                    "user_id": 1,
+                    "repository_id": 2,
+                    "name": "login",
+                },
+                score=0.92,
+            )
+        ]
+    )
+
+    store = QdrantVectorStore(client)
+
+    results = store.search(
+        query_vector=[0.1] * 768,
+        user_id=1,
+        repository_id=2,
+        limit=5,
+    )
+
+    assert len(results) == 1
+    assert results[0]["entity_id"] == (
+        "user:1::repo:2::python.auth.login"
+    )
+    assert results[0]["score"] == 0.92
+    assert results[0]["text"] == "Function: login"
+
+    kwargs = client.query_points.call_args.kwargs
+    assert kwargs["limit"] == 5
+    assert kwargs["with_payload"] is True
+
+    conditions = kwargs["query_filter"].must
+    assert len(conditions) == 2
+    assert {condition.key for condition in conditions} == {
+        "user_id",
+        "repository_id",
+    }
+
+
+def test_search_returns_empty_when_collection_does_not_exist():
+    client = Mock()
+    client.collection_exists.return_value = False
+
+    store = QdrantVectorStore(client)
+
+    results = store.search(
+        query_vector=[0.1] * 768,
+        user_id=1,
+        repository_id=2,
+    )
+
+    assert results == []
+    client.query_points.assert_not_called()
+
+
+def test_search_rejects_invalid_vector_dimension():
+    client = Mock()
+    store = QdrantVectorStore(client)
+
+    try:
+        store.search(
+            query_vector=[0.1] * 10,
+            user_id=1,
+            repository_id=2,
+        )
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert "dimensional" in str(exc)
+
+    client.query_points.assert_not_called()
+
+
+def test_search_rejects_invalid_limit():
+    client = Mock()
+    store = QdrantVectorStore(client)
+
+    try:
+        store.search(
+            query_vector=[0.1] * 768,
+            user_id=1,
+            repository_id=2,
+            limit=0,
+        )
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert "limit" in str(exc)
+
+    client.query_points.assert_not_called()
