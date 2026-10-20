@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
 
+    MODEL_NAME: str
+    VECTOR_SIZE: int
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=True
