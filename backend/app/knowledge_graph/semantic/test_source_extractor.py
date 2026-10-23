@@ -1,4 +1,3 @@
-
 from pathlib import Path
 
 from app.knowledge_graph.semantic.source_extractor import SourceExtractor

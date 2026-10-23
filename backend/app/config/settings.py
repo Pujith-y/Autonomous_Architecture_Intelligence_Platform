@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     MODEL_NAME: str
     VECTOR_SIZE: int
 
+    LLM_PROVIDER: str = "openai"
+    LLM_MODEL: str = "gpt-4o-mini"
+    LLM_API_KEY: str | None = None
+    LLM_BASE_URL: str | None = None
+    LLM_TEMPERATURE: float = 0.1
+    LLM_MAX_TOKENS: int = 1000
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=True

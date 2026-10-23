@@ -26,7 +26,7 @@ from typing import Iterable
 from neo4j.exceptions import DriverError, Neo4jError
 
 from app.core.logger import logger
-from app.knowledge_graph.neo4j.client import driver
+from app.database.neo4j import driver
 from app.knowledge_graph.neo4j.namespace import _namespace
 from app.repository_model.enums import RelationshipKind as RK
 

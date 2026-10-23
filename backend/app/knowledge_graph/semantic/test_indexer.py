@@ -1,4 +1,3 @@
-
 from pathlib import Path
 
 from app.knowledge_graph.semantic.indexer import SemanticIndexer

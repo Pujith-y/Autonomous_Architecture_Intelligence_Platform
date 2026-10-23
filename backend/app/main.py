@@ -9,6 +9,8 @@ from app.database.qdrant import check_qdrant_connection
 from app.routes.auth import router as auth_router
 from app.routes.repositories import router as repo_router
 from app.database.init_db import init_db
+from app.database.qdrant import client as qdrant_client
+from app.database.neo4j import driver as neo4j_driver
 
 logger.info("AAIP Started")
 
@@ -34,6 +36,8 @@ async def lifespan(app: FastAPI):
     yield
 
     logger.info("Shutting down...")
+    qdrant_client.close()
+    neo4j_driver.close()
 
 
 app = FastAPI(

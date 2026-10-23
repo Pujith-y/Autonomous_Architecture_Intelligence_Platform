@@ -1,8 +1,10 @@
-
 from app.knowledge_graph.semantic.embedding_provider import EmbeddingProvider
 from app.knowledge_graph.semantic.vector_store import QdrantVectorStore
 from app.knowledge_graph.neo4j.query_repository import Neo4jQueryRepository
+import logging
+from time import perf_counter
 
+logger = logging.getLogger(__name__)
 
 class RetrievalService:
     """Combine semantic search results with scoped Neo4j graph evidence."""
@@ -26,6 +28,7 @@ class RetrievalService:
         relationships_per_entity: int = 10,
     ) -> dict:
         """Return semantic matches enriched with direct graph relationships."""
+        total_start = perf_counter()
         if not isinstance(query, str) or not query.strip():
             raise ValueError("query must be a non-empty string")
 
@@ -41,15 +44,20 @@ class RetrievalService:
         if not 1 <= relationships_per_entity <= 100:
             raise ValueError("relationships_per_entity must be between 1 and 100")
 
+        stage_start = perf_counter()
         query_vector = self.embedding_provider.embed_query(query.strip())
+        embedding_ms = (perf_counter() - stage_start) * 1000
 
+        stage_start = perf_counter()
         matches = self.vector_store.search(
             query_vector=query_vector,
             user_id=user_id,
             repository_id=repository_id,
             limit=limit,
         )
+        vector_search_ms = (perf_counter() - stage_start) * 1000
 
+        graph_start = perf_counter()
         evidence = []
 
         for match in matches:
@@ -85,7 +93,21 @@ class RetrievalService:
                     "relationships": relationships,
                 }
             )
+        
+        graph_hydration_ms = (perf_counter() - graph_start) * 1000
+        total_ms = (perf_counter() - total_start) * 1000
 
+        logger.info(
+            "AAIP retrieval timing: embedding=%.1fms, "
+            "vector_search=%.1fms, graph_hydration=%.1fms, "
+            "matches=%d, evidence=%d, total=%.1fms",
+            embedding_ms,
+            vector_search_ms,
+            graph_hydration_ms,
+            len(matches),
+            len(evidence),
+            total_ms,
+        )
         return {
             "query": query.strip(),
             "user_id": user_id,

@@ -1,6 +1,7 @@
 from app.services.indexing.repository_indexer import RepositoryIndexer
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from app.database.qdrant import client as qdrant_client
 
 from app.services.auth.dependencies import get_current_user
 from app.database.postgres import get_db
@@ -12,17 +13,28 @@ from app.schemas.repositories_schemas import (
 )
 
 from app.schemas.indexing_run_schemas import (
-    IndexingRunResponse,
     ListOfIndexingRunResponse
 )
 
-from app.models.repository_model import Repository
 from app.models.user_model import User
 from app.models.indexing_run_model import IndexingRun
 
 from app.services.repository.repository_service import (
     RepositoryService,
 )
+
+from app.schemas.answers import AskRepositoryRequest
+
+from app.ai.provider_factory import create_llm_provider
+
+from app.knowledge_graph.semantic.embedding_provider import EmbeddingProvider
+from app.knowledge_graph.semantic.vector_store import QdrantVectorStore
+from app.knowledge_graph.neo4j.query_repository import Neo4jQueryRepository
+
+from app.knowledge_graph.retrieval.retrieval_service import RetrievalService
+from app.knowledge_graph.retrieval.context_assembler import ContextAssembler
+from app.knowledge_graph.retrieval.answer_service import AnswerService
+
 
 repository_service = RepositoryService()
 
@@ -145,3 +157,56 @@ def delete_repo(
     return {
         "message": "Repository deleted successfully."
     }
+
+
+@router.post("/repositories/{repository_id}/ask")
+def ask_repository(
+    repository_id: int,
+    body: AskRepositoryRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    # Verify repository ownership before accessing its indexed data.
+    repository = repository_service.get_by_id(
+        repository_id,
+        current_user,
+        db,
+    )
+
+
+    vector_store = QdrantVectorStore(
+        client=qdrant_client,
+    )
+
+    # Build the retrieval service.
+    retrieval_service = RetrievalService(
+        embedding_provider=EmbeddingProvider(),
+        vector_store=vector_store,
+        graph_repository=Neo4jQueryRepository(),
+    )
+
+    # Connect retrieval, context assembly, and answer generation.
+    answer_service = AnswerService(
+        retrieval_service=retrieval_service,
+        llm_provider=create_llm_provider(),
+        context_assembler=ContextAssembler(),
+    )
+
+    try:
+        return answer_service.prepare_answer(
+            query=body.query,
+            user_id=current_user.id,
+            repository_id=repository.id,
+            limit=body.limit,
+        )
+    except Exception:
+        from app.core.logger import logger
+
+        logger.exception(
+            "Answer generation failed for repository_id=%s",
+            repository.id,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Answer generation is temporarily unavailable",
+        ) from None

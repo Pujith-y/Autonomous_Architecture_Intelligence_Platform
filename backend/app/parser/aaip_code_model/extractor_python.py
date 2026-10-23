@@ -50,8 +50,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import tree_sitter
+import tree_sitter_python
 from tree_sitter import Node
-from tree_sitter_language_pack import get_parser
+
 
 from app.repository_model import Entity, EntityKind, Relationship, RelationshipKind, Parameter
 from app.parser.aaip_code_model.common import (
@@ -61,7 +63,9 @@ from app.parser.aaip_code_model.common import (
 )
 
 LANGUAGE = "python"
-_parser = get_parser("python")
+_parser = tree_sitter.Parser(
+    tree_sitter.Language(tree_sitter_python.language())
+)
 
 
 def _params(node: Node, source: bytes) -> list[Parameter]:

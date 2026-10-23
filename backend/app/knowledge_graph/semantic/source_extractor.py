@@ -1,4 +1,3 @@
-
 from pathlib import Path
 
 from app.repository_model.entities import Entity

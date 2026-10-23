@@ -1,4 +1,4 @@
-from app.knowledge_graph.neo4j.client import driver
+from app.database.neo4j import driver
 
 
 def initialize_schema():
