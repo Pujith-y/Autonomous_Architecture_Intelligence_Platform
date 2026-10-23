@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from app.knowledge_graph.neo4j.code_graph_tools import CodeGraphTools
+from app.knowledge_graph.code_graph_tools import CodeGraphTools
 from app.knowledge_graph.neo4j.query_repository import EntityNotFoundError
 from app.knowledge_graph.neo4j.resolution.entity_resolver import (
     AmbiguousEntityError,

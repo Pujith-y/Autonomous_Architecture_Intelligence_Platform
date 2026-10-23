@@ -8,7 +8,7 @@ from app.knowledge_graph.neo4j.resolution.entity_resolver import (
     AmbiguousEntityError,
     EntityResolver,
 )
-from app.knowledge_graph.neo4j.code_graph_tools import CodeGraphTools
+from app.knowledge_graph.code_graph_tools import CodeGraphTools
 
 
 pytestmark = pytest.mark.integration
