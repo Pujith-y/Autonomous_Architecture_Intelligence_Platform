@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 
 from fastembed import TextEmbedding
 
@@ -22,20 +22,74 @@ class EmbeddingProvider:
 
         return vector
 
+    
+    def iter_document_embeddings(
+        self,
+        texts: list[str],
+        batch_size: int = 32,
+    ) -> Iterator[tuple[int, list[list[float]]]]:
+        """Yield batches of document embeddings with their starting index."""
+        if batch_size < 1:
+            raise ValueError("batch_size must be positive")
+
+        for start in range(0, len(texts), batch_size):
+            batch = texts[start : start + batch_size]
+
+            vectors = [
+                self._to_vector(embedding)
+                for embedding in self.model.embed(batch)
+            ]
+
+            if len(vectors) != len(batch):
+                raise ValueError(
+                    "Embedding count does not match batch size"
+                )
+
+            if any(
+                len(vector) != self.VECTOR_SIZE
+                for vector in vectors
+            ):
+                raise ValueError(
+                    "Unexpected document embedding dimension"
+                )
+
+            yield start, vectors
+
+    
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
 
-        vectors = [
-            self._to_vector(embedding)
-            for embedding in self.model.embed(texts)
-        ]
+        batch_size = 32
+        vectors: list[list[float]] = []
+
+        for start in range(0, len(texts), batch_size):
+            batch = texts[start : start + batch_size]
+
+            batch_vectors = [
+                self._to_vector(embedding)
+                for embedding in self.model.embed(batch)
+            ]
+
+            if len(batch_vectors) != len(batch):
+                raise ValueError(
+                    "Embedding count does not match batch size"
+                )
+
+            if any(
+                len(vector) != self.VECTOR_SIZE
+                for vector in batch_vectors
+            ):
+                raise ValueError(
+                    "Unexpected document embedding dimension"
+                )
+
+            vectors.extend(batch_vectors)
 
         if len(vectors) != len(texts):
-            raise ValueError("Embedding count does not match document count")
-
-        if any(len(vector) != self.VECTOR_SIZE for vector in vectors):
-            raise ValueError("Unexpected document embedding dimension")
+            raise ValueError(
+                "Embedding count does not match document count"
+            )
 
         return vectors
 

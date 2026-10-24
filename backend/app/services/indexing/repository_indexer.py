@@ -1,5 +1,6 @@
 from datetime import datetime
 from pathlib import Path
+from app.core.logger import logger
 
 from sqlalchemy.orm import Session
 
@@ -99,15 +100,25 @@ class RepositoryIndexer:
         repository: Repository,
     ) -> None:
 
+        try:
+            source_type = RepositorySourceType(repository.source_type)
+        except ValueError as exc:
+            raise ValueError(
+                f"Unsupported repository source type: {repository.source_type}"
+            ) from exc
+
         source = RepositorySource(
-            source_type=RepositorySourceType.LOCAL,
+            source_type=source_type,
             location=repository.path,
         )
 
+        logger.info("Indexing: starting repository ingestion")
         discovered_repository = self.ingestor.ingest(
             source
         )
+        logger.info("Indexing: repository ingestion completed")
 
+        logger.info("Scanning: starting repository scanning")
         scanner = RepositoryScanner(
             ignore_rules=IgnoreRules(discovered_repository.path),
         )
@@ -115,24 +126,32 @@ class RepositoryIndexer:
         files, directories = scanner.scan(
             discovered_repository
         )
+        logger.info("Scanning: repository scanning completed")
 
+        logger.info("Building: starting repository model building")
         discovered_repo = self.builder.build(
             name=discovered_repository.name,
             path=discovered_repository.path,
             files=files,
             directories=directories,
         )
+        logger.info("Building: repository model building completed")
 
+        logger.info("Building: starting repository graph building")
         model = build_repository_graph(
             discovered_repo
         )
+        logger.info("Building: repository graph building completed")
 
+        logger.info("graph: starting repository graph replacement into neo4j")
         self.neo4j_repository.replace_repository_graph(
             model,
             user_id=repository.user_id,
             repository_id=repository.id,
         )
+        logger.info("graph: repository graph replacement completed into neo4j")
 
+        logger.info("Semantic: starting semantic indexing")
         semantic_service = self._build_semantic_indexing_service(
             str(discovered_repo.path),
         )
@@ -142,6 +161,7 @@ class RepositoryIndexer:
             user_id=repository.user_id,
             repository_id=repository.id,
         )
+        logger.info("Semantic: repository semantic indexing completed")
 
     def _build_semantic_indexing_service(
         self,

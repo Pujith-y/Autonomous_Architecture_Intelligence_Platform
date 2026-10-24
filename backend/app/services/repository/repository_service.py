@@ -19,6 +19,7 @@ class RepositoryService:
         repository = Repository(
             name=body.name,
             path=body.path,
+            source_type=body.source_type,
             user_id=current_user.id,
         )
 

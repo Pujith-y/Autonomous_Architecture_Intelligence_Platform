@@ -1,10 +1,12 @@
 from pydantic import BaseModel
 from datetime import datetime
+from typing import Literal
 
 
 class NewRepository(BaseModel):
     name : str
     path : str
+    source_type: Literal["local", "git"] = "local"
 
 class RepositoryResponse(BaseModel):
     id : int

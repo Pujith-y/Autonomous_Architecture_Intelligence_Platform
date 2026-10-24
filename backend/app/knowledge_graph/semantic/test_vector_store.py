@@ -245,3 +245,53 @@ def test_delete_repository_does_nothing_without_collection():
     store.delete_repository(user_id=1, repository_id=2)
 
     client.delete.assert_not_called()
+
+
+
+def test_upsert_document_batch_stores_one_batch():
+    client = Mock()
+    store = QdrantVectorStore(client)
+
+    document = SemanticDocument(
+        entity_id="python.auth.login",
+        text="Function: login",
+        metadata={"kind": "function"},
+    )
+
+    store.upsert_document_batch(
+        documents=[document],
+        vectors=[[0.1] * 768],
+        user_id=1,
+        repository_id=2,
+    )
+
+    client.upsert.assert_called_once()
+    kwargs = client.upsert.call_args.kwargs
+    assert kwargs["collection_name"] == "aaip_code_embeddings"
+    assert len(kwargs["points"]) == 1
+    assert kwargs["points"][0].payload["repository_id"] == 2
+
+
+def test_create_staging_collection_uses_configured_vector_settings():
+    client = Mock()
+    client.collection_exists.return_value = False
+    store = QdrantVectorStore(client)
+
+    store.create_staging_collection("aaip_staging_test")
+
+    kwargs = client.create_collection.call_args.kwargs
+    assert kwargs["collection_name"] == "aaip_staging_test"
+    assert kwargs["vectors_config"].size == 768
+    assert kwargs["vectors_config"].distance == models.Distance.COSINE
+
+
+def test_delete_collection_deletes_existing_collection():
+    client = Mock()
+    client.collection_exists.return_value = True
+    store = QdrantVectorStore(client)
+
+    store.delete_collection("aaip_staging_test")
+
+    client.delete_collection.assert_called_once_with(
+        "aaip_staging_test"
+    )

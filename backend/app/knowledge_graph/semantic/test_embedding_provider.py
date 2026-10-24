@@ -55,3 +55,23 @@ def test_wrong_vector_dimension_is_rejected():
 
     with pytest.raises(ValueError, match="dimension"):
         provider.embed_documents(["test"])
+
+
+
+def test_iter_document_embeddings_yields_batches():
+    provider = EmbeddingProvider(model=FakeEmbeddingModel())
+
+    batches = list(
+        provider.iter_document_embeddings(
+            ["one", "two", "three", "four", "five"],
+            batch_size=2,
+        )
+    )
+
+    assert [start for start, _ in batches] == [0, 2, 4]
+    assert [len(vectors) for _, vectors in batches] == [2, 2, 1]
+    assert all(
+        len(vector) == 768
+        for _, vectors in batches
+        for vector in vectors
+    )

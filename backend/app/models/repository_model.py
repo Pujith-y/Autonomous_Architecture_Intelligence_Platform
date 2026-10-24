@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, String, DateTime
+from sqlalchemy import ForeignKey, String, DateTime, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
@@ -22,6 +22,13 @@ class Repository(Base):
     path: Mapped[str] = mapped_column(
         String(1000),
         nullable=False,
+    )
+
+    source_type: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="local",
+        server_default=text("'local'"),
     )
 
     user_id: Mapped[int] = mapped_column(

@@ -37,7 +37,9 @@ def test_index_repository_builds_embeds_and_stores_documents():
     vectors = [[0.1] * 768, [0.2] * 768]
 
     indexer.build_documents.return_value = documents
-    embedding_provider.embed_documents.return_value = vectors
+    embedding_provider.iter_document_embeddings.return_value = [
+        (0, vectors),
+    ]
 
     service = SemanticIndexingService(
         indexer=indexer,
@@ -54,11 +56,12 @@ def test_index_repository_builds_embeds_and_stores_documents():
     assert count == 2
 
     indexer.build_documents.assert_called_once()
-    embedding_provider.embed_documents.assert_called_once_with(
-        ["Function: login", "Function: logout"]
+    embedding_provider.iter_document_embeddings.assert_called_once_with(
+        ["Function: login", "Function: logout"],
+        batch_size=32
     )
     vector_store.ensure_collection.assert_called_once()
-    vector_store.upsert_documents.assert_called_once_with(
+    vector_store.upsert_document_batch.assert_called_once_with(
         documents=documents,
         vectors=vectors,
         user_id=1,

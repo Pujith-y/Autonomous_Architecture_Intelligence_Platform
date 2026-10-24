@@ -20,6 +20,7 @@ class OpenAILLMProvider(LLMProvider):
             model=settings.LLM_MODEL,
             temperature=settings.LLM_TEMPERATURE,
             max_tokens=settings.LLM_MAX_TOKENS,
+            reasoning_effort="low",
             messages=[
                 {
                     "role": "system",

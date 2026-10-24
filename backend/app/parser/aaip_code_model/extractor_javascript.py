@@ -49,8 +49,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import tree_sitter
+import tree_sitter_javascript
+import tree_sitter_typescript
 from tree_sitter import Node
-from tree_sitter_language_pack import get_parser
 
 from app.repository_model import Entity, EntityKind, Relationship, RelationshipKind, Parameter
 from app.parser.aaip_code_model.common import (
@@ -62,9 +64,15 @@ from app.parser.aaip_code_model.common import (
 LANGUAGE = "javascript"
 
 _parsers = {
-    "js": get_parser("javascript"),
-    "tsx": get_parser("tsx"),
-    "ts": get_parser("typescript"),
+    "js": tree_sitter.Parser(
+        tree_sitter.Language(tree_sitter_javascript.language())
+    ),
+    "tsx": tree_sitter.Parser(
+        tree_sitter.Language(tree_sitter_typescript.language_tsx())
+    ),
+    "ts": tree_sitter.Parser(
+        tree_sitter.Language(tree_sitter_typescript.language_typescript())
+    ),
 }
 
 _JS_EXTENSIONS = JS_EXTENSIONS

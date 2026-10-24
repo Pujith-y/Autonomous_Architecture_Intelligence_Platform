@@ -108,11 +108,16 @@ class QdrantVectorStore:
                 )
             )
 
-        self.client.upsert(
-            collection_name=self.collection_name,
-            points=points,
-            wait=True,
-        )
+        batch_size = 64
+
+        for start in range(0, len(points), batch_size):
+            batch = points[start : start + batch_size]
+
+            self.client.upsert(
+                collection_name=self.collection_name,
+                points=batch,
+                wait=True,
+            )
 
     
     def search(
@@ -169,6 +174,63 @@ class QdrantVectorStore:
 
         return results
 
+    
+    def upsert_document_batch(
+        self,
+        documents: list[SemanticDocument],
+        vectors: list[list[float]],
+        user_id: int,
+        repository_id: int,
+        collection_name: str | None = None,
+    ) -> None:
+        """Upsert one bounded batch of documents into Qdrant."""
+        if len(documents) != len(vectors):
+            raise ValueError(
+                "Document count does not match vector count"
+            )
+
+        if not documents:
+            return
+
+        points = []
+
+        for document, vector in zip(documents, vectors):
+            if len(vector) != self.VECTOR_SIZE:
+                raise ValueError(
+                    f"Expected {self.VECTOR_SIZE}-dimensional vector"
+                )
+
+            graph_entity_id = self._graph_entity_id(
+                document.entity_id,
+                user_id,
+                repository_id,
+            )
+
+            point_id = str(
+                uuid5(NAMESPACE_URL, f"aaip:{graph_entity_id}")
+            )
+
+            payload = {
+                **document.metadata,
+                "entity_id": graph_entity_id,
+                "user_id": user_id,
+                "repository_id": repository_id,
+                "text": document.text,
+            }
+
+            points.append(
+                models.PointStruct(
+                    id=point_id,
+                    vector=vector,
+                    payload=payload,
+                )
+            )
+
+        self.client.upsert(
+            collection_name=collection_name or self.collection_name,
+            points=points,
+            wait=True,
+        )
 
     
     def delete_repository(
@@ -201,3 +263,22 @@ class QdrantVectorStore:
             wait=True,
         )
 
+
+
+    def create_staging_collection(self, collection_name: str) -> None:
+        """Create an empty collection for a replacement semantic index."""
+        if self.client.collection_exists(collection_name):
+            self.client.delete_collection(collection_name)
+
+        self.client.create_collection(
+            collection_name=collection_name,
+            vectors_config=models.VectorParams(
+                size=self.VECTOR_SIZE,
+                distance=self.DISTANCE,
+            ),
+        )
+
+    def delete_collection(self, collection_name: str) -> None:
+        """Delete a collection if it exists."""
+        if self.client.collection_exists(collection_name):
+            self.client.delete_collection(collection_name)
